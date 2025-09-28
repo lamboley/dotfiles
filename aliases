@@ -8,12 +8,16 @@ alias p="cd ~/projects"
 
 alias mkdir="mkdir -p"
 
-alias ll='ls -alF'
 alias ls='ls --color=auto'
+alias ll='ls -alF'
+alias pll='pwd && ll'
+
+alias evi='vim ~/.vimrc'
 
 alias grep='grep --color=auto'
 
 alias dk='docker'
+alias dkp='docker ps'
 alias dki='docker images'
 alias dks='docker service'
 
