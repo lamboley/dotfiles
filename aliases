@@ -18,7 +18,10 @@ alias grep='grep --color=auto'
 
 alias dk='docker'
 alias dkp='docker ps'
+alias dkr='docker run'
 alias dki='docker images'
 alias dks='docker service'
 
 alias tf="terraform"
+
+alias sudo='sudo '
