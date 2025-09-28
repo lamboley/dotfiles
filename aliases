@@ -1,0 +1,20 @@
+
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
+alias .....="cd ../../../.."
+
+alias p="cd ~/projects"
+
+alias mkdir="mkdir -p"
+
+alias ll='ls -alF'
+alias ls='ls --color=auto'
+
+alias grep='grep --color=auto'
+
+alias dk='docker'
+alias dki='docker images'
+alias dks='docker service'
+
+alias tf="terraform"
