@@ -25,3 +25,4 @@ alias dks='docker service'
 alias tf="terraform"
 
 alias sudo='sudo '
+alias watch='watch '
