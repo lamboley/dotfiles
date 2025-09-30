@@ -22,7 +22,9 @@ alias dkr='docker run'
 alias dki='docker images'
 alias dks='docker service'
 
-alias tf="terraform"
+alias tf='terraform's
+
+alias ngt='nginx -t'
 
 alias sudo='sudo '
 alias watch='watch '

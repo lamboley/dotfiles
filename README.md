@@ -2,11 +2,7 @@
 
 My dotfiles collection
 
-## For your own user
-### Installing Aliases when using `sh`
+## Installation
 
 `sh install_sh_aliases.sh`
-
-### Installing `.vimrc`
-
 `sh install_vimrc.sh`
