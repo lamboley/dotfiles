@@ -22,6 +22,9 @@ alias dkr='docker run'
 alias dki='docker images'
 alias dks='docker service'
 
+alias gitt='git tags'
+alias gitpt='git push --tags'
+
 alias tf='terraform's
 
 alias ngt='nginx -t'
