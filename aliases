@@ -32,4 +32,5 @@ alias ngt='nginx -t'
 alias sudo='sudo '
 alias watch='watch '
 
+alias sudg='sudo apt update -y && sudo apt upgrade -y && sudo apt autoremove -y'
 alias udg='apt update -y && apt upgrade -y && apt autoremove -y'
