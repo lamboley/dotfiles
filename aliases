@@ -25,9 +25,11 @@ alias dks='docker service'
 alias gitt='git tag'
 alias gitpt='git push --tags'
 
-alias tf='terraform's
+alias tf='terraform'
 
 alias ngt='nginx -t'
 
 alias sudo='sudo '
 alias watch='watch '
+
+alias udg='apt update -y && apt upgrade -y && apt autoremove -y'
