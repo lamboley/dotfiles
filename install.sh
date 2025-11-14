@@ -1,26 +1,43 @@
 #!/usr/bin/env bash
 
-if [ -f "${HOME}/.bash_aliases" ]; then
-    cat ./aliases >> "${HOME}/.bash_aliases"
-else
-    cat ./aliases > "${HOME}/.bash_aliases"
+if ! tmux -V >/dev/null 2>&1; then
+    echo "tmux is not installed"
 fi
 
-if [ -f "${HOME}/.config/fish/config.fish" ]; then
-    cat ./config.fish >> "${HOME}/.config/fish/config.fish"
-else
-    mkdir -p ${HOME}/.config/fish/
-    cat ./config.fish > "${HOME}/.config/fish/config.fish"
+if ! fish --version >/dev/null 2>&1; then
+    echo "fish is not installed"
 fi
 
-if [ -f "${HOME}/.tmux.conf" ]; then
-    cat ./tmux.conf >> "${HOME}/.tmux.conf"
-else
-    cat ./tmux.conf > "${HOME}/.tmux.conf"
-fi
+cd "$(dirname "$0")"
 
-if [ -f "${HOME}/.vimrc" ]; then
-    cat ./vimrc >> "${HOME}/.vimrc"
-else
-    cat ./vimrc > "${HOME}/.vimrc"
-fi
+install() {
+    if [ -f "${HOME}/.bash_aliases" ]; then
+        if [ -L "${HOME}/.bash_aliases" ]; then
+            rm -f "${HOME}/.bash_aliases"
+        fi
+    fi
+    ln -s -f "aliases" "${HOME}/.bash_aliases"
+
+    if [ -f "${HOME}/.tmux.conf" ]; then
+        if [ -L "${HOME}/.tmux.conf" ]; then
+            rm -f "${HOME}/.tmux.conf"
+        fi
+    fi
+    ln -s -f "tmux.conf" "${HOME}/.tmux.conf"
+
+    if [ -f "${HOME}/.config/fish/config.fish" ]; then
+        if [ -L "${HOME}/.config/fish/config.fish" ]; then
+            rm -f "${HOME}/.config/fish/config.fish"
+        fi
+    fi
+    ln -s -f "fish/config.fish" "${HOME}/.config/fish/config.fish"
+
+    if [ -f "${HOME}/.config/fish/functions/fish_greeting.fish" ]; then
+        if [ -L "${HOME}/.config/fish/functions/fish_greeting.fish" ]; then
+            rm -f "${HOME}/.config/fish/functions/fish_greeting.fish"
+        fi
+    fi
+    ln -s -f "fish/functions/fish_greeting.fish" "${HOME}/.config/fish/functions/fish_greeting.fish"
+}
+
+install
