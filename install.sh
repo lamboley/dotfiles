@@ -16,28 +16,28 @@ install() {
             rm -f "${HOME}/.bash_aliases"
         fi
     fi
-    ln -s -f "aliases" "${HOME}/.bash_aliases"
+    ln -s -f "${HOME}/.dotfiles/aliases" "${HOME}/.bash_aliases"
 
     if [ -f "${HOME}/.tmux.conf" ]; then
         if [ -L "${HOME}/.tmux.conf" ]; then
             rm -f "${HOME}/.tmux.conf"
         fi
     fi
-    ln -s -f "tmux.conf" "${HOME}/.tmux.conf"
+    ln -s -f "${HOME}/.dotfiles/tmux.conf" "${HOME}/.tmux.conf"
 
     if [ -f "${HOME}/.config/fish/config.fish" ]; then
         if [ -L "${HOME}/.config/fish/config.fish" ]; then
             rm -f "${HOME}/.config/fish/config.fish"
         fi
     fi
-    ln -s -f "fish/config.fish" "${HOME}/.config/fish/config.fish"
+    ln -s -f "${HOME}/.dotfiles/fish/config.fish" "${HOME}/.config/fish/config.fish"
 
     if [ -f "${HOME}/.config/fish/functions/fish_greeting.fish" ]; then
         if [ -L "${HOME}/.config/fish/functions/fish_greeting.fish" ]; then
             rm -f "${HOME}/.config/fish/functions/fish_greeting.fish"
         fi
     fi
-    ln -s -f "fish/functions/fish_greeting.fish" "${HOME}/.config/fish/functions/fish_greeting.fish"
+    ln -s -f "${HOME}/.dotfiles/fish/functions/fish_greeting.fish" "${HOME}/.config/fish/functions/fish_greeting.fish"
 }
 
 install

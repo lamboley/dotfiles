@@ -4,6 +4,4 @@ My dotfiles collection
 
 ## Installation
 
-git clone git@github.com:lamboley/dotfiles.git ~/.dotfiles
-
-## Ressources
+git clone https://github.com/lamboley/dotfiles.git ~/.dotfiles && cd ~/.dotfiles && bash ./install.sh
