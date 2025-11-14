@@ -8,27 +8,9 @@ alias mkdir="mkdir -p"
 
 alias ls='ls --color=auto'
 alias ll='ls -alF'
-alias pll='pwd && ll'
 
 alias evi='vim ~/.vimrc'
 
 alias grep='grep --color=auto'
 
-alias dk='docker'
-alias dkps='docker ps -a'
-alias dkr='docker run'
-alias dki='docker images'
-alias dks='docker service'
-
-alias gitt='git tag'
-alias gitpt='git push --tags'
-
-alias tf='terraform'
-
-alias ngt='nginx -t'
-
 alias sudo='sudo '
-alias watch='watch '
-
-alias sudg='sudo apt update -y && sudo apt upgrade -y && sudo apt autoremove -y'
-alias udg='apt update -y && apt upgrade -y && apt autoremove -y'

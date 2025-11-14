@@ -4,5 +4,4 @@ My dotfiles collection
 
 ## Installation
 
-`sh install_sh_aliases.sh`
-`sh install_vimrc.sh`
+git clone git@github.com:lamboley/dotfiles.git ~/dotfiles
