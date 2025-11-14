@@ -4,8 +4,6 @@ alias ...="cd ../.."
 alias ....="cd ../../.."
 alias .....="cd ../../../.."
 
-alias p="cd ~/projects"
-
 alias mkdir="mkdir -p"
 
 alias ls='ls --color=auto'
