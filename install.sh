@@ -12,32 +12,28 @@ cd "$(dirname "$0")"
 
 install() {
     if [ -f "${HOME}/.bash_aliases" ]; then
-        if [ -L "${HOME}/.bash_aliases" ]; then
-            rm -f "${HOME}/.bash_aliases"
-        fi
+        rm -f "${HOME}/.bash_aliases"
     fi
     ln -s -f "${HOME}/.dotfiles/aliases" "${HOME}/.bash_aliases"
 
     if [ -f "${HOME}/.tmux.conf" ]; then
-        if [ -L "${HOME}/.tmux.conf" ]; then
-            rm -f "${HOME}/.tmux.conf"
-        fi
+        rm -f "${HOME}/.tmux.conf"
     fi
     ln -s -f "${HOME}/.dotfiles/tmux.conf" "${HOME}/.tmux.conf"
 
     if [ -f "${HOME}/.config/fish/config.fish" ]; then
-        if [ -L "${HOME}/.config/fish/config.fish" ]; then
-            rm -f "${HOME}/.config/fish/config.fish"
-        fi
+        rm -f "${HOME}/.config/fish/config.fish"
     fi
     ln -s -f "${HOME}/.dotfiles/fish/config.fish" "${HOME}/.config/fish/config.fish"
 
     if [ -f "${HOME}/.config/fish/functions/fish_greeting.fish" ]; then
-        if [ -L "${HOME}/.config/fish/functions/fish_greeting.fish" ]; then
-            rm -f "${HOME}/.config/fish/functions/fish_greeting.fish"
-        fi
+        rm -f "${HOME}/.config/fish/functions/fish_greeting.fish"
     fi
     ln -s -f "${HOME}/.dotfiles/fish/functions/fish_greeting.fish" "${HOME}/.config/fish/functions/fish_greeting.fish"
+
+    mv ~/.config/nvim{,.bak}
+    git clone https://github.com/LazyVim/starter ~/.config/nvim
+    rm -rf ~/.config/nvim/.git
 }
 
 install
