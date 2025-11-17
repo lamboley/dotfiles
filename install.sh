@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# set-vmvideo "Your VM Name" -horizontalresolution:1920 -verticalresolution:1080 -resolutiontype single
 if ! tmux -V >/dev/null 2>&1; then
     echo "tmux is not installed"
 fi
