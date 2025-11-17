@@ -6,5 +6,6 @@ end
 set fish_greeting ""
 
 alias ll "ls -l"
+alias vim "nvim"
 
 starship init fish | source
