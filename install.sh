@@ -11,6 +11,7 @@ fi
 cd "$(dirname "$0")"
 
 install() {
+
     if [ -f "${HOME}/.bash_aliases" ]; then
         rm -f "${HOME}/.bash_aliases"
     fi
@@ -21,11 +22,13 @@ install() {
     fi
     ln -s -f "${HOME}/.dotfiles/tmux.conf" "${HOME}/.tmux.conf"
 
+    mkdir -p "${HOME}.config/fish"
     if [ -f "${HOME}/.config/fish/config.fish" ]; then
         rm -f "${HOME}/.config/fish/config.fish"
     fi
     ln -s -f "${HOME}/.dotfiles/fish/config.fish" "${HOME}/.config/fish/config.fish"
 
+    mkdir -p "${HOME}.config/fish/functions"
     if [ -f "${HOME}/.config/fish/functions/fish_greeting.fish" ]; then
         rm -f "${HOME}/.config/fish/functions/fish_greeting.fish"
     fi
