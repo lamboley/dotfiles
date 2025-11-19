@@ -1,12 +1,18 @@
 #!/bin/bash
 
+function log_info() {
+    echo -e "\033[0;103m[INFO]\033[0m --- $*"
+}
+
 sudo apt update -y && sudo apt install -y neovim fish curl
 
-if [ ! command -v kitty >/dev/null 2>&1 ]; then
+command_kitty=$(command -v kitty)
+if [ ! "$command_kitty" ]; then
     curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
 fi
 
-if [ ! command -v starship >/dev/null 2>&1 ]; then
+command_starship=$(command -v starship)
+if [ ! "$command_starship" ]; then
     curl -sS https://starship.rs/install.sh | sh
 fi
 
@@ -21,6 +27,6 @@ mkdir -p "${HOME}/.config/kitty"
 rm -f "${HOME}/.config/kitty/kitty.conf"
 ln -s -f "${HOME}/.dotfiles/.config/kitty/kitty.conf" "${HOME}/.config/kitty/kitty.conf"
 
-rm -Rf ${HOME}/.config/nvim
-git clone https://github.com/LazyVim/starter ${HOME}/.config/nvim
+rm -Rf "${HOME}/.config/nvim"
+git clone https://github.com/LazyVim/starter "${HOME}/.config/nvim"
 rm -rf ~/.config/nvim/.git
