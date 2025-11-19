@@ -1,12 +1,4 @@
-#!/usr/bin/env bash
-
-if ! tmux -V >/dev/null 2>&1; then
-    echo "tmux is not installed"
-fi
-
-if ! fish --version >/dev/null 2>&1; then
-    echo "fish is not installed"
-fi
+#!/bin/bash
 
 rm -f "${HOME}/.bash_aliases"
 ln -s -f "${HOME}/.dotfiles/aliases" "${HOME}/.bash_aliases"
