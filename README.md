@@ -2,14 +2,17 @@
 
 My dotfiles collection
 
-## Installation
+## Installation && Update
+
+**Installation**
 
 ```bash
-git clone https://github.com/lamboley/dotfiles.git ~/.dotfiles
+git clone https://github.com/lamboley/dotfiles.git ~/.dotfiles && cd ~/.dotfiles
 ```
-## Update
 
-```
+**Update**:
+
+```bash
 cd ~/.dotfiles && git pull  && bash ./install.sh
 ```
 
