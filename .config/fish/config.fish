@@ -1,17 +1,6 @@
-set -U fish_greeting
+# Author: Lucas Lamboley
 
-alias .. "cd .."
-alias ... "cd ../.."
-
-alias mkdir "mkdir -p"
-
-alias grep "grep --color=auto"
-
-alias ls='ls --color=auto -l'
-alias ll "ls -l"
-
-alias vim "nvim"
-
-alias sudo "sudo "
+source $HOME/.config/fish/main.fish
+source $HOME/.config/fish/aliases.fish
 
 starship init fish | source
