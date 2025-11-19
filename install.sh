@@ -1,17 +1,14 @@
 #!/bin/bash
 
-if [ $(id -u) = 0 ]; then
-    ./dependency.sh
-fi
+sudo apt update -y && sudo apt install -y neovim fish kitty curl
 
-sudo -p "Root password to install dependencies: " apt update -y && apt install -y neovim fish kitty curl
-curl -sS https://starship.rs/install.sh | sh
+if ! [ command -v starship ]; then
+    curl -sS https://starship.rs/install.sh | sh
+fi
 
 mkdir -p "${HOME}/.config/fish"
 rm -f "${HOME}/.config/fish/config.fish"
 ln -s -f "${HOME}/.dotfiles/.config/fish/config.fish" "${HOME}/.config/fish/config.fish"
-
-fish_update_completions
 
 mkdir -p "${HOME}/.config/kitty"
 rm -f "${HOME}/.config/kitty/kitty.conf"

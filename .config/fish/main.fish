@@ -9,7 +9,7 @@ function update-dotfiles --description "Updates my .dotfiles"
 end
 
 function update-packages --description "Update and upgrade packages"
-    sudo apt install -y && apt upgrade -y && apt clean && apt autoremove
+    sudo apt install -y && sudo apt upgrade -y && sudo apt clean && sudo apt autoremove
 end
 
 set -U fish_greeting
