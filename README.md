@@ -18,5 +18,13 @@ cd ~/.dotfiles && git pull  && bash ./install.sh
 
 ## Kitty
 
+### Mapping
+
 <Ctr-Shft>: Is the default modifier
 <Ctr-Shft-F2>: Allow to create a kitty configuration file.
+
+### Themes
+
+```bash
+kitten theme
+```
