@@ -16,6 +16,10 @@ git clone https://github.com/lamboley/dotfiles.git ~/.dotfiles && cd ~/.dotfiles
 cd ~/.dotfiles && git pull  && bash ./install.sh
 ```
 
+## Nerds Font
+
+https://github.com/IBM/plex
+
 ## Kitty
 
 ### Mapping
