@@ -26,6 +26,8 @@ https://github.com/IBM/plex
 
 <Ctr-Shft>: Is the default modifier
 <Ctr-Shft-F2>: Allow to create a kitty configuration file.
+<Ctr-Shft-F5>: Reload configuration file.
+<Ctr-Shft-Enter>: Split horizontally
 
 ### Themes
 
