@@ -13,6 +13,10 @@ mkdir -p "${HOME}/.config/fish"
 rm -f "${HOME}/.config/fish/config.fish"
 ln -s -f "${HOME}/.dotfiles/fish/config.fish" "${HOME}/.config/fish/config.fish"
 
+mkdir -p "${HOME}/.config/kitty"
+rm -f "${HOME}/.config/kitty/kitty.conf"
+ln -s -f "${HOME}/.dotfiles/kitty/kitty.conf" "${HOME}/.config/kitty/kitty.conf"
+
 mv ~/.config/nvim{,.bak}
 git clone https://github.com/LazyVim/starter ~/.config/nvim
 rm -rf ~/.config/nvim/.git
