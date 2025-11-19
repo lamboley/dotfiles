@@ -12,5 +12,6 @@ function update-packages --description "Update and upgrade packages"
     sudo apt install -y && apt upgrade -y && apt clean && apt autoremove
 end
 
-# Disable fish welcome message
 set -U fish_greeting
+
+set -gx EDITOR nvim
