@@ -8,6 +8,9 @@ fi
 
 mkdir -p "${HOME}/.config/fish"
 rm -f "${HOME}/.config/fish/config.fish"
+
+ln -s -f "${HOME}/.dotfiles/.config/fish/main.fish" "${HOME}/.config/fish/main.fish"
+ln -s -f "${HOME}/.dotfiles/.config/fish/aliases.fish" "${HOME}/.config/fish/aliases.fish"
 ln -s -f "${HOME}/.dotfiles/.config/fish/config.fish" "${HOME}/.config/fish/config.fish"
 
 mkdir -p "${HOME}/.config/kitty"
