@@ -18,4 +18,5 @@ cd ~/.dotfiles && git pull  && bash ./install.sh
 
 ## Kitty
 
+<Ctr-Shft>: Is the default modifier
 <Ctr-Shft-F2>: Allow to create a kitty configuration file.
