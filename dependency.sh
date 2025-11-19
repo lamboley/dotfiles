@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [[ $EUID -ne 0 ]]; then
+    echo "script must be run as root"
+    exit 1
+fi
+
 apt update -y
 apt upgrade -y
 apt install -y neovim fish tmux curl
