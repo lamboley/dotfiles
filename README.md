@@ -4,8 +4,15 @@ My dotfiles collection
 
 ## Installation
 
-git clone https://github.com/lamboley/dotfiles.git ~/.dotfiles && cd ~/.dotfiles && bash ./install.sh
-
+```bash
+git clone https://github.com/lamboley/dotfiles.git ~/.dotfiles
+```
 ## Update
 
+```
 cd ~/.dotfiles && git pull  && bash ./install.sh
+```
+
+## Kitty
+
+<Ctr-Shft-F2>: Allow to create a kitty configuration file.
