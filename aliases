@@ -6,7 +6,7 @@ alias .....="cd ../../../.."
 
 alias mkdir="mkdir -p"
 
-alias ls='ls --color=auto'
+alias ls='ls --color=auto -l'
 alias ll='ls -alF'
 
 alias evi='vim ~/.vimrc'

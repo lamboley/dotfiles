@@ -30,6 +30,8 @@ https://github.com/IBM/plex
 <Ctr-Shft-Enter>: Split horizontally
 <Ctr-Shft-L>: Cycle through layout
 <Ctr-Shft-W>: Delete window
+<Ctr-Shft-T>: New Tab
+<Ctr-Shft-Q>: Close Tab
 
 ### Themes
 
