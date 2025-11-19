@@ -13,7 +13,7 @@ git clone https://github.com/lamboley/dotfiles.git ~/.dotfiles && cd ~/.dotfiles
 **Update**:
 
 ```bash
-cd ~/.dotfiles && git pull  && bash ./install.sh
+cd ~/.dotfiles && git pull && bash ./install.sh
 ```
 
 ## Nerds Font
