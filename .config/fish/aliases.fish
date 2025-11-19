@@ -8,6 +8,7 @@ alias df 'df -h'
 alias du 'du -ch'
 alias free 'free -m'
 
+# Easy moving around directory
 alias .. "cd .."
 alias ... "cd ../.."
 
