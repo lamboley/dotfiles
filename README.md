@@ -28,6 +28,8 @@ https://github.com/IBM/plex
 <Ctr-Shft-F2>: Allow to create a kitty configuration file.
 <Ctr-Shft-F5>: Reload configuration file.
 <Ctr-Shft-Enter>: Split horizontally
+<Ctr-Shft-L>: Cycle through layout
+<Ctr-Shft-W>: Delete window
 
 ### Themes
 
