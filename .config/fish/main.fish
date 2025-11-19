@@ -12,15 +12,25 @@ function update-packages --description "Update and upgrade apt packages"
     sudo apt install -y && sudo apt upgrade -y && sudo apt clean && sudo apt autoremove
 end
 
-function lucas-dtag --description "Delete a tag from git"
-    if [[ "$#" -le 1 ]]; then
-        log_error "Missing arguments"
-        log_error "Usage: $0 <tag to delete>"
-        exit 1
-    fi
+function lucas-ctag --description "Create a tag from git"
+    if [ -z "$argv" ];
+        echo "Missing arguments"
+        echo "Usage: $0 <tag to create>"
+        return
+    else
+        git tag $argv[1] && git push --tags
+    end
+end
 
-	# git tag --delete $(CURRENTTAG)
-	# git push --delete origin $(CURRENTTAG)
+function lucas-dtag --description "Delete a tag from git"
+    if [ -z "$argv" ];
+        echo "Missing arguments"
+        echo "Usage: $0 <tag to delete>"
+        return
+    else
+        git tag --delete $argv[1]
+        git push --delete origin $argv[1]
+    end
 end
 
 set -U fish_greeting
