@@ -25,7 +25,7 @@ log_info "Install kitty..."
 sudo apt install -y kitty
 
 log_info "Install or update starship..."
-curl -sS https://starship.rs/install.sh | sh
+curl -sS https://starship.rs/install.sh | sh -s -- --yes
 
 log_info "Configure fish"
 
