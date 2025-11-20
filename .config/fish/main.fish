@@ -6,7 +6,7 @@ function fish_user_key_bindings
 end
 
 function update-dotfiles --description "Updates my .dotfiles"
-    cd ~/.dotfiles && git pull && bash ./install.sh
+    cd ~/.dotfiles && git pull && ./install.sh
 end
 
 function update-packages --description "Update and upgrade apt packages"
