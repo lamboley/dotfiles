@@ -1,17 +1,7 @@
 # Author: Lucas Lamboley
 
-function fish_user_key_bindings
-    bind \cu update-dotfiles
-    bind \cy update-packages
-end
-
-function update-dotfiles --description "Updates my .dotfiles"
-    cd ~/.dotfiles && git pull && ./install.sh
-end
-
-function update-packages --description "Update and upgrade apt packages"
-    sudo apt install -y && sudo apt upgrade -y && sudo apt clean -y && sudo apt autoremove -y
-end
+bind \cu update-dotfiles
+bind \cy update-packages
 
 function lucas-ctag --description "Create a tag from git"
     if [ -z "$argv" ];
