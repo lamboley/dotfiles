@@ -42,4 +42,4 @@ log_info "... Configuring neovim"
 
 rm -Rf "${HOME}/.config/nvim"
 git clone https://github.com/LazyVim/starter "${HOME}/.config/nvim"
-rm -rf ~/.config/nvim/.git
+rm -Rf ~/.config/nvim/.git
