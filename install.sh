@@ -1,20 +1,31 @@
 #!/bin/bash
 
+set -e
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
+
 function log_info() {
-    current_time=$(date "+%Y/%m/%d %H:%M:%S")
-    echo -e "${current_time} [\033[4;32mINFO\033[0m] $*"
+    now=$(date +'%Y/%m/%d %H:%M:%S')
+    echo >&2 -e "${now} [\033[4;32mINFO\033[0m] $*"
 }
 
-log_info "Install neovim, fish, curl and kitty"
-sudo apt update -y && sudo apt install -y neovim fish curl kitty
+log_info "Update apt cache..."
+sudo apt update -y
 
-command_starship=$(command -v starship)
-if [ ! "$command_starship" ]; then
-    log_info "Install starship.rs"
-    curl -sS https://starship.rs/install.sh | sh
-else
-    log_info "Starship is already installed"
-fi
+log_info "Install curl..."
+sudo apt install -y curl
+
+log_info "Install neovim..."
+sudo apt install -y neovim
+
+log_info "Install neovim..."
+sudo apt install -y fish
+
+log_info "Install kitty..."
+sudo apt install -y kitty
+
+log_info "Install or update starship..."
+curl -sS https://starship.rs/install.sh | sh
 
 log_info "Configure fish"
 
@@ -23,11 +34,11 @@ rm -Rf "${HOME}/.config/fish"
 mkdir -p "${HOME}/.config/fish"
 mkdir -p "${HOME}/.config/fish/functions"
 
-ln -s -f "${HOME}/.dotfiles/.config/fish/main.fish" "${HOME}/.config/fish/main.fish"
-ln -s -f "${HOME}/.dotfiles/.config/fish/aliases.fish" "${HOME}/.config/fish/aliases.fish"
-ln -s -f "${HOME}/.dotfiles/.config/fish/config.fish" "${HOME}/.config/fish/config.fish"
-ln -s -f "${HOME}/.dotfiles/.config/fish/functions/update-dotfiles.fish" "${HOME}/.config/fish/functions/update-dotfiles.fish"
-ln -s -f "${HOME}/.dotfiles/.config/fish/functions/update-packages.fish" "${HOME}/.config/fish/functions/update-packages.fish"
+ln -s -f "${script_dir}/.config/fish/main.fish" "${HOME}/.config/fish/main.fish"
+ln -s -f "${script_dir}/.config/fish/aliases.fish" "${HOME}/.config/fish/aliases.fish"
+ln -s -f "${script_dir}/.config/fish/config.fish" "${HOME}/.config/fish/config.fish"
+ln -s -f "${script_dir}/.config/fish/functions/update-dotfiles.fish" "${HOME}/.config/fish/functions/update-dotfiles.fish"
+ln -s -f "${script_dir}/.config/fish/functions/update-packages.fish" "${HOME}/.config/fish/functions/update-packages.fish"
 
 log_info "Configure kitty"
 
@@ -37,9 +48,9 @@ rm -f "${HOME}/.local/share/applications/kitty.desktop"
 mkdir -p "${HOME}/.config/kitty"
 mkdir -p "${HOME}/.local/share/applications"
 
-ln -s -f "${HOME}/.dotfiles/.config/kitty/kitty.conf" "${HOME}/.config/kitty/kitty.conf"
-ln -s -f "${HOME}/.dotfiles/.config/kitty/current-theme.conf" "${HOME}/.config/kitty/current-theme.conf"
-ln -s -f "${HOME}/.dotfiles/.local/share/applications/kitty.desktop" "${HOME}/.local/share/applications/kitty.desktop"
+ln -s -f "${script_dir}/.config/kitty/kitty.conf" "${HOME}/.config/kitty/kitty.conf"
+ln -s -f "${script_dir}/.config/kitty/current-theme.conf" "${HOME}/.config/kitty/current-theme.conf"
+ln -s -f "${script_dir}/.local/share/applications/kitty.desktop" "${HOME}/.local/share/applications/kitty.desktop"
 
 log_info "Configure neovim"
 
