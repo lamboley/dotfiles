@@ -25,21 +25,21 @@ fi
 
 log_info "... Configuring fish"
 
-mkdir -p "${HOME}/.config/fish"
-rm -f "${HOME}/.config/fish/config.fish"
+mkdir -p "$HOME/.config/fish"
+rm -f "$HOME/.config/fish/config.fish"
 
-ln -s -f "${HOME}/.dotfiles/.config/fish/main.fish" "${HOME}/.config/fish/main.fish"
-ln -s -f "${HOME}/.dotfiles/.config/fish/aliases.fish" "${HOME}/.config/fish/aliases.fish"
-ln -s -f "${HOME}/.dotfiles/.config/fish/config.fish" "${HOME}/.config/fish/config.fish"
+ln -s -f "$HOME/.dotfiles/.config/fish/main.fish" "$HOME/.config/fish/main.fish"
+ln -s -f "$HOME/.dotfiles/.config/fish/aliases.fish" "$HOME/.config/fish/aliases.fish"
+ln -s -f "$HOME/.dotfiles/.config/fish/config.fish" "$HOME/.config/fish/config.fish"
 
 log_info "... Configuring kitty"
 
-mkdir -p "${HOME}/.config/kitty"
-rm -f "${HOME}/.config/kitty/kitty.conf"
-ln -s -f "${HOME}/.dotfiles/.config/kitty/kitty.conf" "${HOME}/.config/kitty/kitty.conf"
+mkdir -p "$HOME/.config/kitty"
+rm -f "$HOME/.config/kitty/kitty.conf"
+ln -s -f "$HOME/.dotfiles/.config/kitty/kitty.conf" "$HOME/.config/kitty/kitty.conf"
 
 log_info "... Configuring neovim"
 
-rm -Rf "${HOME}/.config/nvim"
-git clone https://github.com/LazyVim/starter "${HOME}/.config/nvim"
-rm -Rf ~/.config/nvim/.git
+rm -Rf "$HOME/.config/nvim"
+git clone https://github.com/LazyVim/starter "$HOME/.config/nvim"
+rm -Rf "$HOME/.config/nvim/.git"
