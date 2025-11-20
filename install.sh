@@ -35,6 +35,7 @@ rm -f "${HOME}/.local/share/applications/kitty.desktop"
 
 mkdir -p "${HOME}/.config/kitty"
 mkdir -p "${HOME}/.local/share/applications"
+
 ln -s -f "${HOME}/.dotfiles/.config/kitty/kitty.conf" "${HOME}/.config/kitty/kitty.conf"
 ln -s -f "${HOME}/.dotfiles/.config/kitty/current-theme.conf" "${HOME}/.config/kitty/current-theme.conf"
 ln -s -f "${HOME}/.dotfiles/.local/share/applications/kitty.desktop" "${HOME}/.local/share/applications/kitty.desktop"
