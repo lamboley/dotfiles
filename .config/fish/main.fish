@@ -2,6 +2,7 @@
 
 function fish_user_key_bindings
     bind \cu update-dotfiles
+    bind \cy update-packages
 end
 
 function update-dotfiles --description "Updates my .dotfiles"
