@@ -9,7 +9,7 @@ function update-dotfiles --description "Updates my .dotfiles"
 end
 
 function update-packages --description "Update and upgrade apt packages"
-    sudo apt install -y && sudo apt upgrade -y && sudo apt clean && sudo apt autoremove
+    sudo apt install -y && sudo apt upgrade -y && sudo apt clean -y && sudo apt autoremove -y
 end
 
 function lucas-ctag --description "Create a tag from git"
