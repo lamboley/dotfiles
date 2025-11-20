@@ -27,6 +27,7 @@ ln -s -f "${HOME}/.dotfiles/.config/fish/main.fish" "${HOME}/.config/fish/main.f
 ln -s -f "${HOME}/.dotfiles/.config/fish/aliases.fish" "${HOME}/.config/fish/aliases.fish"
 ln -s -f "${HOME}/.dotfiles/.config/fish/config.fish" "${HOME}/.config/fish/config.fish"
 ln -s -f "${HOME}/.dotfiles/.config/fish/functions/update-dotfiles.fish" "${HOME}/.config/fish/functions/update-dotfiles.fish"
+ln -s -f "${HOME}/.dotfiles/.config/fish/functions/update-packages.fish" "${HOME}/.config/fish/functions/update-packages.fish"
 
 log_info "Configure kitty"
 
