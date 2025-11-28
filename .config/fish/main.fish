@@ -29,3 +29,4 @@ set -U fish_greeting
 set -gx EDITOR nvim
 
 fish_add_path -g "$HOME/.local/bin"
+fish_add_path -g "/opt/nvim-linux-x86_64/bin"
