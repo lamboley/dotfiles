@@ -10,7 +10,7 @@ function log_info() {
 }
 
 log_info "Update apt cache..."
-sudo apt update -y
+sudo apt update -y && sudo apt upgrade -y && sudo apt autoremove -y && sudo apt clean -y
 
 log_info "Install curl..."
 sudo apt install -y curl
