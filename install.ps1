@@ -30,6 +30,7 @@ $packages = @(
     "sharkdp.fd"
     "junegunn.fzf"
     "eza-community.eza"
+    "JanDeDobbeleer.OhMyPosh"
 )
 
 foreach ($pkg in $packages) {
@@ -59,5 +60,17 @@ if (!(Test-Path $nvimDir)) {
 }
 Copy-Item "$DOTFILES\nvim\*" $nvimDir -Recurse -Force
 
+# Configure Oh My Posh in PowerShell profile
+$profileDir = Split-Path $PROFILE
+if (!(Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force }
+if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
+
+$ompLine = 'oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\dracula.omp.json" | Invoke-Expression'
+if (!(Select-String -Path $PROFILE -Pattern "oh-my-posh" -Quiet -ErrorAction SilentlyContinue)) {
+    Add-Content -Path $PROFILE -Value "`n$ompLine"
+}
+
 # Symlinks
 New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.wezterm.lua" -Target "$DOTFILES\wezterm\.wezterm.lua" -Force
+
+Write-Host "`nDone! Restart your terminal." -ForegroundColor Green
