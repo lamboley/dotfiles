@@ -20,6 +20,12 @@ has_gui() {
   [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]
 }
 
+# Preflight checks
+if ! command -v sudo >/dev/null 2>&1; then
+  fmt_error "sudo is required to run this script"
+  exit 1
+fi
+
 # Get the repo
 if [ -d "$DOTFILES" ]; then
   git -C "$DOTFILES" pull --rebase origin master
