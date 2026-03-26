@@ -52,6 +52,14 @@ curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x8
 sudo rm -rf /opt/nvim-linux-x86_64
 sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz && rm -f nvim-linux-x86_64.tar.gz
 
+# Install lazygit
+if ! command -v lazygit >/dev/null 2>&1; then
+  LAZYGIT_VERSION=$(curl -s https://api.github.com/repos/jesseduffield/lazygit/releases/latest | grep -Po '"tag_name": "v\K[^"]*')
+  curl -fsSL -o /tmp/lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+  sudo tar -C /usr/local/bin -xzf /tmp/lazygit.tar.gz lazygit
+  rm -f /tmp/lazygit.tar.gz
+fi
+
 # Install WezTerm (GUI only)
 if has_gui && ! command -v wezterm >/dev/null 2>&1; then
   curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm.gpg
@@ -79,6 +87,7 @@ if [ ! -d "$HOME/.config/nvim" ]; then
   git clone https://github.com/LazyVim/starter "$HOME/.config/nvim"
   rm -rf "$HOME/.config/nvim/.git"
 fi
+cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
 
 # Symlinks
 ln -s -f "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"
