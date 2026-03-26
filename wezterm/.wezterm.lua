@@ -14,7 +14,7 @@ config.window_decorations = "RESIZE"
 
 -- Windows: Use PowerShell
 if wezterm.target_triple == "x86_64-pc-windows-msvc" then
-  config.default_prog = { "powershell.exe" }
+    config.default_prog = { "pwsh.exe" }
 end
 
 -- Keybindings
