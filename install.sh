@@ -35,7 +35,7 @@ fi
 
 # Update and install packages
 sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get autoremove -y
-sudo apt-get install -y curl git zsh unzip
+sudo apt-get install -y curl git zsh unzip ripgrep fd-find fzf eza
 
 # Install FiraCode Nerd Font (GUI only)
 if has_gui && [ ! -f "$HOME/.local/share/fonts/FiraCodeNerdFont-Regular.ttf" ]; then
