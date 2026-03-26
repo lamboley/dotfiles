@@ -1,61 +1,69 @@
-#!/bin/bash
-
+#!/bin/sh
+#
+# This script should be run via curl:
+#   sh -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"
+# or via wget:
+#   sh -c "$(wget -qO- https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"
+# or via fetch:
+#   sh -c "$(fetch -o - https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"
+#
 set -e
 
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
+DOTFILES="$HOME/.dotfiles"
+REPO="https://github.com/lamboley/dotfiles.git"
 
-function log_info() {
-    now=$(date +'%Y/%m/%d %H:%M:%S')
-    echo >&2 -e "${now} [\033[4;32mINFO\033[0m] $*"
+fmt_error() {
+  printf '\033[1;31mError: %s\033[0m\n' "$*" >&2
 }
 
-log_info "Update apt cache..."
-sudo apt update -y && sudo apt upgrade -y && sudo apt autoremove -y && sudo apt clean -y
+# Get the repo
+if [ -d "$DOTFILES" ]; then
+  git -C "$DOTFILES" pull --rebase origin main
+else
+  git clone --depth=1 "$REPO" "$DOTFILES" || { fmt_error "Failed to clone dotfiles"; exit 1; }
+fi
 
-log_info "Install curl..."
-sudo apt install -y curl
+# Update and install packages
+sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get autoremove -y
+sudo apt-get install -y curl git zsh
 
-log_info "Install neovim..."
-curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
+# Install Neovim
+curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz \
+  || { fmt_error "Failed to download neovim"; exit 1; }
 sudo rm -rf /opt/nvim-linux-x86_64
 sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz && rm -f nvim-linux-x86_64.tar.gz
 
-log_info "Install fish..."
-sudo apt install -y fish
+# Install WezTerm
+if ! command -v wezterm >/dev/null 2>&1; then
+  curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm.gpg
+  echo "deb [signed-by=/usr/share/keyrings/wezterm.gpg] https://apt.fury.io/wez/ * *" \
+    | sudo tee /etc/apt/sources.list.d/wezterm.list >/dev/null
+  sudo apt-get update -qq && sudo apt-get install -y wezterm
+fi
 
-log_info "Install kitty..."
-sudo apt install -y kitty
+# Install Oh My Zsh framework
+if [ ! -d "$HOME/.oh-my-zsh" ]; then
+  RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+fi
 
-log_info "Install or update starship..."
-curl -sS https://starship.rs/install.sh | sh -s -- --yes
+ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
 
-log_info "Configure fish"
+[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ] || \
+  git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
 
-rm -Rf "${HOME}/.config/fish"
+[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ] || \
+  git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
 
-mkdir -p "${HOME}/.config/fish"
-mkdir -p "${HOME}/.config/fish/functions"
+# Configure Neovim
+if [ ! -d "$HOME/.config/nvim" ]; then
+  git clone https://github.com/LazyVim/starter "$HOME/.config/nvim"
+  rm -rf "$HOME/.config/nvim/.git"
+fi
 
-ln -s -f "${script_dir}/.config/fish/main.fish" "${HOME}/.config/fish/main.fish"
-ln -s -f "${script_dir}/.config/fish/aliases.fish" "${HOME}/.config/fish/aliases.fish"
-ln -s -f "${script_dir}/.config/fish/config.fish" "${HOME}/.config/fish/config.fish"
-ln -s -f "${script_dir}/.config/fish/functions/update-dotfiles.fish" "${HOME}/.config/fish/functions/update-dotfiles.fish"
-ln -s -f "${script_dir}/.config/fish/functions/update-packages.fish" "${HOME}/.config/fish/functions/update-packages.fish"
+ln -s -f "$DOTFILES/zsh/.zshrc"           "$HOME/.zshrc"
+ln -s -f "$DOTFILES/wezterm/.wezterm.lua"  "$HOME/.wezterm.lua"
 
-log_info "Configure kitty"
-
-rm -Rf "${HOME}/.config/kitty/"
-rm -f "${HOME}/.local/share/applications/kitty.desktop"
-
-mkdir -p "${HOME}/.config/kitty"
-mkdir -p "${HOME}/.local/share/applications"
-
-ln -s -f "${script_dir}/.config/kitty/kitty.conf" "${HOME}/.config/kitty/kitty.conf"
-ln -s -f "${script_dir}/.config/kitty/current-theme.conf" "${HOME}/.config/kitty/current-theme.conf"
-ln -s -f "${script_dir}/.local/share/applications/kitty.desktop" "${HOME}/.local/share/applications/kitty.desktop"
-
-log_info "Configure neovim"
-
-rm -Rf "${HOME}/.config/nvim"
-git clone https://github.com/LazyVim/starter "${HOME}/.config/nvim"
-rm -Rf "${HOME}/.config/nvim/.git"
+if [ "$(basename "$SHELL")" != "zsh" ]; then
+  chsh -s "$(command -v zsh)"
+fi

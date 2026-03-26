@@ -1,40 +1,9 @@
-# My dotefiles
+## dotfiles
 
-My dotfiles collection
+__Installation:__
 
-## Installation && Update
-
-**Installation**
-
-```bash
-git clone https://github.com/lamboley/dotfiles.git ~/.dotfiles && cd ~/.dotfiles
-```
-
-**Update**:
-
-```bash
-cd ~/.dotfiles && git pull && bash ./install.sh
-```
-
-## Nerds Font
-
-https://github.com/IBM/plex
-
-## Kitty
-
-### Mapping
-
-<Ctr-Shft>: Is the default modifier
-<Ctr-Shft-F2>: Allow to create a kitty configuration file.
-<Ctr-Shft-F5>: Reload configuration file.
-<Ctr-Shft-Enter>: Split horizontally
-<Ctr-Shft-L>: Cycle through layout
-<Ctr-Shft-W>: Delete window
-<Ctr-Shft-T>: New Tab
-<Ctr-Shft-Q>: Close Tab
-
-### Themes
-
-```bash
-kitten theme
-```
+| Method    | Command                                                                                           |
+| :-------- | :------------------------------------------------------------------------------------------------ |
+| **curl**  | `sh -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"` |
+| **wget**  | `sh -c "$(wget -O- https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"`   |
+| **fetch** | `sh -c "$(fetch -o - https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"` |
