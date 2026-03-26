@@ -37,7 +37,7 @@ foreach ($pkg in $packages) {
 }
 
 # Install FiraCode Nerd Font
-$fontDir = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+$fontDir = "$env:SystemRoot\Fonts"
 if (!(Test-Path "$fontDir\FiraCodeNerdFont-Regular.ttf")) {
     $zipPath = "$env:TEMP\FiraCode.zip"
     $extractPath = "$env:TEMP\FiraCode"
@@ -45,6 +45,8 @@ if (!(Test-Path "$fontDir\FiraCodeNerdFont-Regular.ttf")) {
     Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
     Get-ChildItem "$extractPath\*.ttf" | ForEach-Object {
         Copy-Item $_.FullName $fontDir -Force
+        New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts" `
+            -Name "$($_.BaseName) (TrueType)" -Value $_.Name -PropertyType String -Force
     }
     Remove-Item $zipPath, $extractPath -Recurse -Force
 }
