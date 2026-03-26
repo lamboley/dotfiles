@@ -52,15 +52,14 @@ if (!$fontInstalled) {
     Invoke-WebRequest -Uri "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip" -OutFile $zipPath
     Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
 
-    # Install using Shell.Application (registers fonts properly)
     $shellApp = New-Object -ComObject Shell.Application
-    $fontFolder = $shellApp.Namespace(0x14) # Windows Fonts folder
+    $fontFolder = $shellApp.Namespace(0x14)
     Get-ChildItem "$extractPath\*.ttf" | ForEach-Object {
-        $fontFolder.CopyHere($_.FullName, 0x14) # 0x14 = no prompt + overwrite
+        $fontFolder.CopyHere($_.FullName, 0x14)
     }
 
     Remove-Item $zipPath, $extractPath -Recurse -Force
-    Write-Host "FiraCode Nerd Font installed. You may need to restart WezTerm." -ForegroundColor Green
+    Write-Host "FiraCode Nerd Font installed." -ForegroundColor Green
 }
 
 # Configure Neovim (LazyVim)
@@ -73,12 +72,7 @@ if (Test-Path "$DOTFILES\nvim") {
     Copy-Item "$DOTFILES\nvim\*" $nvimDir -Recurse -Force
 }
 
-# Configure Oh My Posh in PowerShell 7 profile
-$pwshProfile = "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
-$pwshProfileDir = Split-Path $pwshProfile
-if (!(Test-Path $pwshProfileDir)) { New-Item -ItemType Directory -Path $pwshProfileDir -Force }
-if (!(Test-Path $pwshProfile)) { New-Item -ItemType File -Path $pwshProfile -Force }
-
+# Configure Oh My Posh in both PowerShell profiles
 $profileContent = @'
 # Oh My Posh
 if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
@@ -94,8 +88,18 @@ if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
 }
 '@
 
-if (!(Select-String -Path $pwshProfile -Pattern "oh-my-posh" -Quiet -ErrorAction SilentlyContinue)) {
-    Add-Content -Path $pwshProfile -Value "`n$profileContent"
+$profiles = @(
+    "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
+    "$env:USERPROFILE\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1"
+)
+
+foreach ($p in $profiles) {
+    $pDir = Split-Path $p
+    if (!(Test-Path $pDir)) { New-Item -ItemType Directory -Path $pDir -Force }
+    if (!(Test-Path $p)) { New-Item -ItemType File -Path $p -Force }
+    if (!(Select-String -Path $p -Pattern "oh-my-posh" -Quiet -ErrorAction SilentlyContinue)) {
+        Add-Content -Path $p -Value "`n$profileContent"
+    }
 }
 
 # Symlink WezTerm config
