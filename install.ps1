@@ -105,13 +105,19 @@ foreach ($p in $profiles) {
 # Symlink WezTerm config
 $weztermSource = "$DOTFILES\wezterm\.wezterm.lua"
 $weztermDest = "$env:USERPROFILE\.wezterm.lua"
+$configSource = "$DOTFILES\wezterm\config"
+$configDest = "$env:USERPROFILE\.config\wezterm\config"
 
 if (Test-Path $weztermDest) { Remove-Item $weztermDest -Force }
+if (Test-Path $configDest) { Remove-Item $configDest -Force }
 
 if (Test-Path $weztermSource) {
     New-Item -ItemType SymbolicLink -Path $weztermDest -Target $weztermSource -Force
-} else {
-    Write-Host "Warning: $weztermSource not found, skipping WezTerm symlink" -ForegroundColor Yellow
+}
+
+if (Test-Path $configSource) {
+    New-Item -ItemType Directory -Path "$env:USERPROFILE\.config\wezterm" -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType SymbolicLink -Path $configDest -Target $configSource -Force
 }
 
 Write-Host "`nDone! Restart your terminal." -ForegroundColor Green

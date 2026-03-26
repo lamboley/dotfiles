@@ -97,6 +97,9 @@ cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
 ln -s -f "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"
 if has_gui; then
   ln -s -f "$DOTFILES/wezterm/.wezterm.lua" "$HOME/.wezterm.lua"
+  mkdir -p "$HOME/.config/wezterm"
+  rm -f "$HOME/.config/wezterm/config"
+  ln -s -f "$DOTFILES/wezterm/config" "$HOME/.config/wezterm/config"
 fi
 
 # Set as default shell
