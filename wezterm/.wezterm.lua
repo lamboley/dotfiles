@@ -18,11 +18,12 @@ config.initial_cols = 160
 config.initial_rows = 45
 
 -- Keybindings
+-- It remove opacity config, prefere Super + Upper Arrow
 config.keys = {
 	{
 		key = "n",
 		mods = "SHIFT|CTRL",
-		action = wezterm.action.TogglePaneZoomState,
+		action = wezterm.action.ToggleFullScreen,
 	},
 }
 
