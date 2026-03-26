@@ -23,6 +23,7 @@ if (Test-Path $DOTFILES) {
 
 # Install packages via winget
 $packages = @(
+    "Microsoft.PowerShell"
     "Neovim.Neovim"
     "wez.wezterm"
     "JesseDuffield.lazygit"
@@ -72,12 +73,12 @@ if (Test-Path "$DOTFILES\nvim") {
     Copy-Item "$DOTFILES\nvim\*" $nvimDir -Recurse -Force
 }
 
-# Configure Oh My Posh in PowerShell profile
-$profileDir = Split-Path $PROFILE
-if (!(Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force }
-if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
+# Configure Oh My Posh in PowerShell 7 profile
+$pwshProfile = "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
+$pwshProfileDir = Split-Path $pwshProfile
+if (!(Test-Path $pwshProfileDir)) { New-Item -ItemType Directory -Path $pwshProfileDir -Force }
+if (!(Test-Path $pwshProfile)) { New-Item -ItemType File -Path $pwshProfile -Force }
 
-# Write a safe profile that checks if oh-my-posh exists before loading
 $profileContent = @'
 # Oh My Posh
 if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
@@ -93,23 +94,20 @@ if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
 }
 '@
 
-# Only write if not already configured
-if (!(Select-String -Path $PROFILE -Pattern "oh-my-posh" -Quiet -ErrorAction SilentlyContinue)) {
-    Add-Content -Path $PROFILE -Value "`n$profileContent"
+if (!(Select-String -Path $pwshProfile -Pattern "oh-my-posh" -Quiet -ErrorAction SilentlyContinue)) {
+    Add-Content -Path $pwshProfile -Value "`n$profileContent"
 }
 
 # Symlink WezTerm config
 $weztermSource = "$DOTFILES\wezterm\.wezterm.lua"
 $weztermDest = "$env:USERPROFILE\.wezterm.lua"
 
-# Remove broken symlink if exists
 if (Test-Path $weztermDest) { Remove-Item $weztermDest -Force }
 
 if (Test-Path $weztermSource) {
     New-Item -ItemType SymbolicLink -Path $weztermDest -Target $weztermSource -Force
 } else {
     Write-Host "Warning: $weztermSource not found, skipping WezTerm symlink" -ForegroundColor Yellow
-    Write-Host "Create the file in your dotfiles repo and re-run the script" -ForegroundColor Yellow
 }
 
 Write-Host "`nDone! Restart your terminal." -ForegroundColor Green
