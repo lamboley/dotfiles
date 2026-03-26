@@ -1,6 +1,15 @@
+This repository contains my dotfiles.
+
 ## dotfiles
 
-__Installation:__
+This will install and configure the following:
+
+- Zsh and Oh My Zsh
+- Neovim with LazyVim
+- FiraCode Nerd Font (GUI only)
+- WezTerm (GUI only)
+
+### Installation
 
 | Method    | Command                                                                                           |
 | :-------- | :------------------------------------------------------------------------------------------------ |

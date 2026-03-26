@@ -35,7 +35,16 @@ fi
 
 # Update and install packages
 sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get autoremove -y
-sudo apt-get install -y curl git zsh
+sudo apt-get install -y curl git zsh unzip
+
+# Install FiraCode Nerd Font (GUI only)
+if has_gui && [ ! -f "$HOME/.local/share/fonts/FiraCodeNerdFont-Regular.ttf" ]; then
+  mkdir -p "$HOME/.local/share/fonts"
+  curl -fsSL -o /tmp/FiraCode.zip https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
+  unzip -o /tmp/FiraCode.zip -d "$HOME/.local/share/fonts"
+  rm -f /tmp/FiraCode.zip
+  fc-cache -f
+fi
 
 # Install Neovim
 curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz \
