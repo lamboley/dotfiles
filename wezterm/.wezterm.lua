@@ -18,7 +18,7 @@ config.initial_cols = 160
 config.initial_rows = 45
 
 -- Keybindings
--- It remove opacity config, prefere Super + Upper Arrow
+-- It remove opacity config, prefer Super + Upper Arrow
 config.keys = {
 	{
 		key = "n",
