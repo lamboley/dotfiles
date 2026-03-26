@@ -6,7 +6,7 @@ local config = wezterm.config_builder()
 config.color_scheme = "Dracula (Official)"
 config.font = wezterm.font("FiraCode Nerd Font")
 config.font_size = 11
-config.window_background_opacity = 0.85
+config.window_background_opacity = 0.80
 
 -- Minimalisme
 config.hide_tab_bar_if_only_one_tab = true
