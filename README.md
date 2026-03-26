@@ -22,4 +22,4 @@ __Windows:__
 
 | Method    | Command                                                                                           |
 | :-------- | :------------------------------------------------------------------------------------------------ |
-| **Powershell Admin**  | `irm https://raw.githubusercontent.com/lamboley/dotfiles/master/install.ps1 | iex` |
+| **PowerShell Admin** | `irm https://raw.githubusercontent.com/lamboley/dotfiles/master/install.ps1 \| iex` |
