@@ -16,6 +16,10 @@ fmt_error() {
   printf '\033[1;31mError: %s\033[0m\n' "$*" >&2
 }
 
+has_gui() {
+  [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]
+}
+
 # Get the repo
 if [ -d "$DOTFILES" ]; then
   git -C "$DOTFILES" pull --rebase origin master
@@ -33,8 +37,8 @@ curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x8
 sudo rm -rf /opt/nvim-linux-x86_64
 sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz && rm -f nvim-linux-x86_64.tar.gz
 
-# Install WezTerm
-if ! command -v wezterm >/dev/null 2>&1; then
+# Install WezTerm (GUI only)
+if has_gui && ! command -v wezterm >/dev/null 2>&1; then
   curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm.gpg
   echo "deb [signed-by=/usr/share/keyrings/wezterm.gpg] https://apt.fury.io/wez/ * *" \
     | sudo tee /etc/apt/sources.list.d/wezterm.list >/dev/null
@@ -61,9 +65,13 @@ if [ ! -d "$HOME/.config/nvim" ]; then
   rm -rf "$HOME/.config/nvim/.git"
 fi
 
-ln -s -f "$DOTFILES/zsh/.zshrc"           "$HOME/.zshrc"
-ln -s -f "$DOTFILES/wezterm/.wezterm.lua"  "$HOME/.wezterm.lua"
+# Symlinks
+ln -s -f "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"
+if has_gui; then
+  ln -s -f "$DOTFILES/wezterm/.wezterm.lua" "$HOME/.wezterm.lua"
+fi
 
+# Set as default shell
 if [ "$(basename "$SHELL")" != "zsh" ]; then
   chsh -s "$(command -v zsh)"
 fi
