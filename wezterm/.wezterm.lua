@@ -4,7 +4,7 @@ local config = wezterm.config_builder()
 
 -- Apparence
 config.color_scheme = "Dracula (Official)"
-config.font = wezterm.font("FiraCode Nerd Font")
+config.font = wezterm.font("FiraCode Nerd Font Mono")
 config.font_size = 11
 config.window_background_opacity = 0.75
 
