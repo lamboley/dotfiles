@@ -22,8 +22,18 @@ config.initial_rows = 45
 config.keys = {
 	{
 		key = "n",
-		mods = "SHIFT|CTRL",
+		mods = "SHIFT|CTRL|ALT",
 		action = wezterm.action.ToggleFullScreen,
+	},
+	{
+		key = "d",
+		mods = "SHIFT|CTRL|ALT",
+		action = wezterm.action.SplitVertical({ domain = "CurrentPaneDomain" }),
+	},
+	{
+		key = "w",
+		mods = "SHIFT|CTRL|ALT",
+		action = wezterm.action.CloseCurrentPane({ confirm = false }),
 	},
 }
 
