@@ -18,7 +18,7 @@ fmt_error() {
 
 # Get the repo
 if [ -d "$DOTFILES" ]; then
-  git -C "$DOTFILES" pull --rebase origin main
+  git -C "$DOTFILES" pull --rebase origin master
 else
   git clone --depth=1 "$REPO" "$DOTFILES" || { fmt_error "Failed to clone dotfiles"; exit 1; }
 fi
