@@ -3,5 +3,5 @@ update-packages() {
 }
 
 update-dotfiles() {
-  git -C "$HOME/.dotfiles" pull --rebase origin main
+  git -C "$HOME/.dotfiles" pull --rebase origin master
 }
