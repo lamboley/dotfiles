@@ -55,6 +55,7 @@ curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x8
   || { fmt_error "Failed to download neovim"; exit 1; }
 sudo rm -rf /opt/nvim-linux-x86_64
 sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz && rm -f nvim-linux-x86_64.tar.gz
+sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
 
 # Install lazygit
 if ! command -v lazygit >/dev/null 2>&1; then
