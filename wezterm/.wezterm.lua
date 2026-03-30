@@ -18,6 +18,7 @@ merge(config, require('config.keys'))
 
 if require('utils.platform').is_win then
     config.default_prog = { 'pwsh.exe' }
+    config.win32_system_backdrop = "Acrylic"
 end
 
 return config
