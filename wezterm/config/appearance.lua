@@ -63,4 +63,8 @@ return {
    },
 
    window_background_opacity = 0.85,
+   if wezterm.target_triple == "x86_64-pc-windows-msvc" then
+     config.default_prog = { "pwsh.exe" }
+     config.win32_system_backdrop = "Acrylic"
+   end
 }
