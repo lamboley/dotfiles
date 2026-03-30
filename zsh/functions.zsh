@@ -3,5 +3,5 @@ update-packages() {
 }
 
 update-dotfiles() {
-  git -C "$HOME/.dotfiles" pull --rebase origin master
+  sh -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"
 }
