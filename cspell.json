@@ -7,14 +7,19 @@
         "Dobbeleer",
         "dracula",
         "Duffield",
+        "Dx12",
+        "FiraCode",
         "junegunn",
+        "linux",
         "msvc",
+        "nerdfonts",
         "nvim",
         "osaka",
         "robbyrussell",
         "RUNZSH",
         "sharkdp",
         "strftime",
+        "webgpu",
         "wezterm"
     ]
 }
