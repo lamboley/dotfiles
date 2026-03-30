@@ -20,7 +20,7 @@ if require('utils.platform').is_win then
     config.default_prog = { 'pwsh.exe' }
     config.win32_system_backdrop = "Acrylic"
     config.front_end = "OpenGL"
-    window_background_opacity = 0.7,
+    window_background_opacity = 0.7
 end
 
 return config
