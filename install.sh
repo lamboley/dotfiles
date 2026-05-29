@@ -35,7 +35,7 @@ fi
 
 # Update and install packages
 sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get autoremove -y
-sudo apt-get install -y curl git zsh unzip ripgrep fd-find fzf eza
+sudo apt-get install -y curl git zsh unzip ripgrep fd-find fzf eza keychain
 
 # Symlink fdfind to fd (Ubuntu names it fdfind)
 mkdir -p "$HOME/.local/bin"
@@ -49,13 +49,6 @@ if has_gui && [ ! -f "$HOME/.local/share/fonts/FiraCodeNerdFont-Regular.ttf" ]; 
   rm -f /tmp/FiraCode.zip
   fc-cache -f
 fi
-
-# Install Neovim
-curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz \
-  || { fmt_error "Failed to download neovim"; exit 1; }
-sudo rm -rf /opt/nvim-linux-x86_64
-sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz && rm -f nvim-linux-x86_64.tar.gz
-sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
 
 # Install lazygit
 if ! command -v lazygit >/dev/null 2>&1; then
@@ -86,13 +79,6 @@ ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
 
 [ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ] || \
   git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-
-# Configure Neovim
-if [ ! -d "$HOME/.config/nvim" ]; then
-  git clone https://github.com/LazyVim/starter "$HOME/.config/nvim"
-  rm -rf "$HOME/.config/nvim/.git"
-fi
-cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
 
 # Symlinks
 ln -s -f "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"

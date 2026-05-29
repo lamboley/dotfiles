@@ -1,0 +1,27 @@
+name: Do Not Submit
+
+on:
+  pull_request:
+    branches:
+      - 'main'
+
+permissions: {}
+
+jobs:
+  donotsubmit:
+    name: Do Not Submit
+    runs-on: ubuntu-latest
+
+    if: github.repository == 'lamboley/dotfiles'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v2.4.0
+        with:
+          persist-credentials: false
+
+      - name: Do Not Submit
+        uses: chainguard-dev/actions/donotsubmit@c69a264ec2a5934c3186c618f368fc1c86f16cff # v1.6.19

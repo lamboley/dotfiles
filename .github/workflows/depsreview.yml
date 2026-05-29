@@ -1,0 +1,80 @@
+name: Dependency Review
+
+# Three layers of dependency checking, on every PR:
+#
+#   1. License compliance (Go via `go-licenses`, npm via `license-checker`).
+#      Vital for a commercial product: a GPL/AGPL/LGPL/SSPL dep means we
+#      legally owe source code to users (AGPL even applies over network).
+#
+#   2. OSV-Scanner (Google) on every lockfile — vulnerability scan against
+#      the OSV.dev database. Catches transitive vulns and existing deps
+#      that newly received a CVE since the last run.
+#
+# GitHub's own `dependency-review-action` would be a fourth layer, but it
+# needs GitHub Advanced Security on a private repo — not available on the
+# free plan. The combo above gives equivalent coverage (vuln + license)
+# without GHAS.
+
+on:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  go-licenses:
+    name: Go license compliance
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4  # renovate: pinDigest
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5  # renovate: pinDigest
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install go-licenses
+        run: go install github.com/google/go-licenses@latest
+      - name: Check Go module licenses
+        # `forbidden` = GPL/AGPL family (viral) + JSON license.
+        # `restricted` = LGPL family (problematic with static linking,
+        # which is what Go does by default).
+        run: go-licenses check ./... --disallowed_types=forbidden,restricted
+
+  npm-licenses:
+    name: npm license compliance
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4  # renovate: pinDigest
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4  # renovate: pinDigest
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Check npm package licenses
+        # Fails if any dep (direct or transitive) carries one of these
+        # licenses. The list mirrors `go-licenses` `forbidden+restricted`.
+        run: npx license-checker --production --failOn 'GPL-2.0;GPL-3.0;AGPL-1.0;AGPL-3.0;LGPL-2.0;LGPL-2.1;LGPL-3.0;SSPL-1.0;JSON'
+
+  osv-scan:
+    name: OSV scanner (full lockfile)
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.2.2  # renovate: pinDigest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    with:
+      scan-args: |-
+        --recursive
+        --skip-git
+        ./

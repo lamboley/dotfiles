@@ -1,0 +1,38 @@
+name: Semgrep SAST
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - 'adr/**'
+      - 'docs/**'
+
+permissions: {}
+
+jobs:
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    if: github.repository == 'lamboley/dotfiles'
+
+    permissions:
+      contents: read
+
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4  # renovate: pinDigest
+        with:
+          persist-credentials: false
+
+      - name: Run Semgrep
+        run: |
+          semgrep scan \
+            --config=p/default \
+            --config=p/security-audit \
+            --config=p/owasp-top-ten \
+            --config=p/secrets \
+            --error \
+            --metrics=off
