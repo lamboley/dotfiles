@@ -1,14 +1,15 @@
+<a href="https://github.com/lamboley/dotfiles/actions/workflows/sast.yml"><img src="https://github.com/lamboley/dotfiles/actions/workflows/sast.yml/badge.svg" alt="sast" /></a>
+
+# Dotfiles
+
 This repository contains my dotfiles.
-
-## dotfiles
-
 This will install and configure the following:
 
 - Zsh and Oh My Zsh
 - FiraCode Nerd Font (GUI only)
 - WezTerm (GUI only)
 
-### Installation
+## Installation
 
 __Ubuntu:__
 
