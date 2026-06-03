@@ -50,6 +50,13 @@ if has_gui && [ ! -f "$HOME/.local/share/fonts/FiraCodeNerdFont-Regular.ttf" ]; 
   fc-cache -f
 fi
 
+# Install Neovim
+curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz \
+  || { fmt_error "Failed to download neovim"; exit 1; }
+sudo rm -rf /opt/nvim-linux-x86_64
+sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz && rm -f nvim-linux-x86_64.tar.gz
+sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+
 # Install lazygit
 if ! command -v lazygit >/dev/null 2>&1; then
   LAZYGIT_VERSION=$(curl -s https://api.github.com/repos/jesseduffield/lazygit/releases/latest | grep -Po '"tag_name": "v\K[^"]*')
@@ -65,12 +72,11 @@ if ! command -v zellij >/dev/null 2>&1; then
   rm -f /tmp/zellij.tar.gz
 fi
 
-# Install WezTerm (GUI only)
-if has_gui && ! command -v wezterm >/dev/null 2>&1; then
-  curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm.gpg
-  echo "deb [signed-by=/usr/share/keyrings/wezterm.gpg] https://apt.fury.io/wez/ * *" \
-    | sudo tee /etc/apt/sources.list.d/wezterm.list >/dev/null
-  sudo apt-get update -qq && sudo apt-get install -y wezterm
+# Install Alacritty (GUI only)
+if has_gui && ! command -v alacritty >/dev/null 2>&1; then
+  sudo apt-get install -y software-properties-common
+  sudo add-apt-repository -y ppa:aslatter/ppa
+  sudo apt-get update -qq && sudo apt-get install -y alacritty
 fi
 
 # Install Oh My Zsh framework
@@ -87,10 +93,22 @@ ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
 [ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ] || \
   git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
 
+# Configure Neovim
+if [ ! -d "$HOME/.config/nvim" ]; then
+  git clone https://github.com/LazyVim/starter "$HOME/.config/nvim"
+  rm -rf "$HOME/.config/nvim/.git"
+fi
+cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
+
 # Symlinks
 ln -s -f "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"
+
+mkdir -p "$HOME/.config/zellij"
+ln -s -f "$DOTFILES/zellij/config.kdl" "$HOME/.config/zellij/config.kdl"
+
 if has_gui; then
-  ln -s -f "$DOTFILES/wezterm/.wezterm.lua" "$HOME/.wezterm.lua"
+  mkdir -p "$HOME/.config/alacritty"
+  ln -s -f "$DOTFILES/alacritty/alacritty.toml" "$HOME/.config/alacritty/alacritty.toml"
 fi
 
 # Set as default shell

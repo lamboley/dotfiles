@@ -6,8 +6,9 @@ This repository contains my dotfiles.
 This will install and configure the following:
 
 - Zsh and Oh My Zsh
+- Neovim with LazyVim
 - FiraCode Nerd Font (GUI only)
-- WezTerm (GUI only)
+- Alacritty (GUI only)
 - Zellij
 
 ## Installation
