@@ -8,6 +8,7 @@ This will install and configure the following:
 - Zsh and Oh My Zsh
 - FiraCode Nerd Font (GUI only)
 - WezTerm (GUI only)
+- Zellij
 
 ## Installation
 

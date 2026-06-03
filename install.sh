@@ -58,6 +58,13 @@ if ! command -v lazygit >/dev/null 2>&1; then
   rm -f /tmp/lazygit.tar.gz
 fi
 
+# Install zellij
+if ! command -v zellij >/dev/null 2>&1; then
+  curl -fsSL -o /tmp/zellij.tar.gz "https://github.com/zellij-org/zellij/releases/latest/download/zellij-x86_64-unknown-linux-musl.tar.gz"
+  sudo tar -C /usr/local/bin -xzf /tmp/zellij.tar.gz zellij
+  rm -f /tmp/zellij.tar.gz
+fi
+
 # Install WezTerm (GUI only)
 if has_gui && ! command -v wezterm >/dev/null 2>&1; then
   curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm.gpg
