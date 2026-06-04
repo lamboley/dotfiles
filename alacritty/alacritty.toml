@@ -17,12 +17,7 @@ family = "FiraCode Nerd Font Mono"
 [window]
 opacity = 1
 blur = true
-decorations = "none"
 startup_mode = "Windowed"
-
-[window.padding]
-x = 2
-y = 2                   # marge autour du texte, respire mieux
 
 [cursor]
 unfocused_hollow = true
