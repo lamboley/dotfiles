@@ -1,3 +1,11 @@
+// --- Personal overrides ---
+theme "dracula"
+default_layout "compact"
+copy_on_select true
+mouse_mode true
+pane_frames true
+// ---------------------------
+
 // If you'd like to override the default keybindings completely, be sure to change "keybinds" to "keybinds clear-defaults=true"
 keybinds {
     normal {

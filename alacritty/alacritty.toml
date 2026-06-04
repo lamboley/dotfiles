@@ -18,6 +18,10 @@ family = "FiraCode Nerd Font Mono"
 opacity = 1
 blur = true
 startup_mode = "Windowed"
+decorations = "Full"
+
+[terminal.shell]
+program = "zellij"
 
 [cursor]
 unfocused_hollow = true
@@ -31,3 +35,8 @@ save_to_clipboard = true
 
 [scrolling]
 history = 10000
+
+[keyboard]
+bindings = [
+  { key = "Return", mods = "Alt", action = "ToggleFullscreen" },
+]
