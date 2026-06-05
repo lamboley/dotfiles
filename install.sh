@@ -74,24 +74,9 @@ fi
 
 # Install sshm (interactive SSH host manager with tags)
 if ! command -v sshm >/dev/null 2>&1; then
-  SSHM_URL=$(curl -s https://api.github.com/repos/Gu1llaum-3/sshm/releases/latest \
-    | grep -Po '"browser_download_url":\s*"\K[^"]*' \
-    | grep -iE 'linux[_-]amd64\.tar\.gz$' \
-    | head -n1)
-  if [ -n "$SSHM_URL" ]; then
-    SSHM_TMP=$(mktemp -d)
-    curl -fsSL -o "$SSHM_TMP/dl.tar.gz" "$SSHM_URL"
-    tar -C "$SSHM_TMP" -xzf "$SSHM_TMP/dl.tar.gz"
-    SSHM_BIN="$(find "$SSHM_TMP" -type f -name 'sshm*' ! -name '*.tar.gz' | head -n1)"
-    if [ -n "$SSHM_BIN" ]; then
-      sudo install -m 0755 "$SSHM_BIN" /usr/local/bin/sshm
-    else
-      fmt_error "sshm binary not found in archive"
-    fi
-    rm -rf "$SSHM_TMP"
-  else
-    fmt_error "Could not resolve sshm download URL"
-  fi
+  curl -fsSL -o /tmp/sshm.tar.gz "https://github.com/Gu1llaum-3/sshm/releases/latest/download/sshm_Linux_x86_64.tar.gz"
+  sudo tar -C /usr/local/bin -xzf /tmp/sshm.tar.gz sshm
+  rm -f /tmp/sshm.tar.gz
 fi
 
 # Install Alacritty (GUI only)
