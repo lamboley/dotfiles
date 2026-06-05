@@ -1,5 +1,9 @@
 # Never version SSH secrets or machine-local host definitions
-ssh/assh.local.yml
+config.local
+ssh/config.local
+# Real config.d host files stay local; only the example is tracked
+ssh/config.d/*
+!ssh/config.d/00-example.conf
 **/id_*
 !**/id_*.pub
 *.pem

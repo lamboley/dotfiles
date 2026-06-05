@@ -72,6 +72,27 @@ if ! command -v zellij >/dev/null 2>&1; then
   rm -f /tmp/zellij.tar.gz
 fi
 
+# Install sshs (interactive SSH host picker)
+if ! command -v sshs >/dev/null 2>&1; then
+  SSHS_URL=$(curl -s https://api.github.com/repos/quantumsheep/sshs/releases/latest \
+    | grep -Po '"browser_download_url":\s*"\K[^"]*' \
+    | grep -iE 'linux[_-](amd64|x86_64)(-(musl|gnu))?$' \
+    | head -n1)
+  if [ -n "$SSHS_URL" ]; then
+    SSHS_TMP=$(mktemp -d)
+    curl -fsSL -o "$SSHS_TMP/dl" "$SSHS_URL"
+    case "$SSHS_URL" in
+      *.tar.gz|*.tgz) tar -C "$SSHS_TMP" -xzf "$SSHS_TMP/dl"
+                      SSHS_BIN="$(find "$SSHS_TMP" -type f -name sshs | head -n1)" ;;
+      *)              SSHS_BIN="$SSHS_TMP/dl" ;;
+    esac
+    sudo install -m 0755 "$SSHS_BIN" /usr/local/bin/sshs
+    rm -rf "$SSHS_TMP"
+  else
+    fmt_error "Could not resolve sshs download URL"
+  fi
+fi
+
 # Install Alacritty (GUI only)
 if has_gui && ! command -v alacritty >/dev/null 2>&1; then
   sudo apt-get install -y software-properties-common
@@ -110,6 +131,27 @@ if has_gui; then
   mkdir -p "$HOME/.config/alacritty"
   ln -s -f "$DOTFILES/alacritty/alacritty.toml" "$HOME/.config/alacritty/alacritty.toml"
 fi
+
+# SSH — hardened client config via native Include, with strict permissions (CIS)
+mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
+chmod 700 "$HOME/.ssh" "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
+chmod 600 "$DOTFILES/ssh/config" "$DOTFILES/ssh/hardening.conf"
+ln -s -f "$DOTFILES/ssh/hardening.conf" "$HOME/.ssh/hardening.conf"
+
+# Hosts stay out of the repo; seed an example if config.d is empty
+if [ -z "$(ls -A "$HOME/.ssh/config.d" 2>/dev/null)" ]; then
+  cp "$DOTFILES/ssh/config.d/00-example.conf" "$HOME/.ssh/config.d/00-example.conf"
+fi
+chmod 600 "$HOME"/.ssh/config.d/*.conf 2>/dev/null || true
+
+# Entry config (Include directives): back up a foreign config, then symlink
+if [ -e "$HOME/.ssh/config" ] && [ ! -L "$HOME/.ssh/config" ]; then
+  cp "$HOME/.ssh/config" "$HOME/.ssh/config.pre-dotfiles.bak"
+fi
+ln -s -f "$DOTFILES/ssh/config" "$HOME/.ssh/config"
+
+# Tighten permissions on existing private keys
+find "$HOME/.ssh" -maxdepth 1 -type f -name 'id_*' ! -name '*.pub' -exec chmod 600 {} \; 2>/dev/null || true
 
 # Set as default shell
 if [ "$(basename "$SHELL")" != "zsh" ]; then

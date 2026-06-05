@@ -4,4 +4,7 @@ plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
 source $ZSH/oh-my-zsh.sh
 
 source "$HOME/.dotfiles/zsh/functions.zsh"
+source "$HOME/.dotfiles/zsh/aliases.zsh"
 export PATH="$HOME/.local/bin:$PATH"
+
+eval "$(keychain --eval --quiet --agents ssh)"
