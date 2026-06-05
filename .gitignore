@@ -1,0 +1,7 @@
+# Never version SSH secrets or machine-local host definitions
+ssh/assh.local.yml
+**/id_*
+!**/id_*.pub
+*.pem
+*.key
+known_hosts*
