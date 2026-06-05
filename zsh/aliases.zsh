@@ -1,8 +1,8 @@
 # Éditeur
 alias vim='nvim'
 
-# sshs : ne lister que TES hôtes (sinon il ajoute /etc/ssh → .host, machine/.host de systemd)
-alias sshs='sshs --config ~/.ssh/config'
+# sshm : ne lister que mes hôtes
+alias sshm='sshm -c ~/.ssh/config'
 
 # Navigation
 alias ..='cd ..'

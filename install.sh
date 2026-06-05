@@ -72,24 +72,25 @@ if ! command -v zellij >/dev/null 2>&1; then
   rm -f /tmp/zellij.tar.gz
 fi
 
-# Install sshs (interactive SSH host picker)
-if ! command -v sshs >/dev/null 2>&1; then
-  SSHS_URL=$(curl -s https://api.github.com/repos/quantumsheep/sshs/releases/latest \
+# Install sshm (interactive SSH host manager with tags)
+if ! command -v sshm >/dev/null 2>&1; then
+  SSHM_URL=$(curl -s https://api.github.com/repos/Gu1llaum-3/sshm/releases/latest \
     | grep -Po '"browser_download_url":\s*"\K[^"]*' \
-    | grep -iE 'linux[_-](amd64|x86_64)(-(musl|gnu))?$' \
+    | grep -iE 'linux[_-]amd64\.tar\.gz$' \
     | head -n1)
-  if [ -n "$SSHS_URL" ]; then
-    SSHS_TMP=$(mktemp -d)
-    curl -fsSL -o "$SSHS_TMP/dl" "$SSHS_URL"
-    case "$SSHS_URL" in
-      *.tar.gz|*.tgz) tar -C "$SSHS_TMP" -xzf "$SSHS_TMP/dl"
-                      SSHS_BIN="$(find "$SSHS_TMP" -type f -name sshs | head -n1)" ;;
-      *)              SSHS_BIN="$SSHS_TMP/dl" ;;
-    esac
-    sudo install -m 0755 "$SSHS_BIN" /usr/local/bin/sshs
-    rm -rf "$SSHS_TMP"
+  if [ -n "$SSHM_URL" ]; then
+    SSHM_TMP=$(mktemp -d)
+    curl -fsSL -o "$SSHM_TMP/dl.tar.gz" "$SSHM_URL"
+    tar -C "$SSHM_TMP" -xzf "$SSHM_TMP/dl.tar.gz"
+    SSHM_BIN="$(find "$SSHM_TMP" -type f -name 'sshm*' ! -name '*.tar.gz' | head -n1)"
+    if [ -n "$SSHM_BIN" ]; then
+      sudo install -m 0755 "$SSHM_BIN" /usr/local/bin/sshm
+    else
+      fmt_error "sshm binary not found in archive"
+    fi
+    rm -rf "$SSHM_TMP"
   else
-    fmt_error "Could not resolve sshs download URL"
+    fmt_error "Could not resolve sshm download URL"
   fi
 fi
 

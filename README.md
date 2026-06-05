@@ -10,7 +10,7 @@ This will install and configure the following:
 - FiraCode Nerd Font (GUI only)
 - Alacritty (GUI only)
 - Zellij
-- Hardened SSH client config + sshs (interactive host picker)
+- Hardened SSH client config + sshm (interactive host manager)
 
 ## Installation
 
