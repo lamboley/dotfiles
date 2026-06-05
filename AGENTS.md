@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+Behavioral guidelines to reduce common LLM coding mistakes.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
@@ -42,25 +42,19 @@ When your changes create orphans:
 
 The test: Every changed line should trace directly to the user's request.
 
-## 4. Goal-Driven Execution
+## 4. Explain to Mastery
 
-**Define success criteria. Loop until verified.**
+**I want to understand 100% of what we do — every command, every line, every configuration.**
 
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
+Default to teaching, not just doing:
+- Before running a command, state what it does and why — including what non-obvious flags and options mean.
+- When writing code or config, explain each meaningful line or block, not only the overall intent.
+- Go one step at a time when I'm following along. Don't batch many commands or apply large changes silently.
+- Prefer a short explanation I can verify over a fast result I can't.
+- Flag anything destructive or hard to reverse before doing it, not after.
 
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+This intentionally biases toward more explanation — the goal is my understanding, not just a working system. It pairs with, and does not override, Simplicity First: simple implementations, thoroughly explained.
 
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
-
