@@ -11,6 +11,17 @@ ZSH_THEME="robbyrussell"
 plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
 source $ZSH/oh-my-zsh.sh
 
+# History search with up/down arrows.
+# Binds both normal (^[[A) and application (^[OA) cursor sequences so it works
+# inside Zellij/tmux as well as in a bare terminal.
+autoload -U up-line-or-beginning-search down-line-or-beginning-search
+zle -N up-line-or-beginning-search
+zle -N down-line-or-beginning-search
+bindkey '^[[A' up-line-or-beginning-search
+bindkey '^[[B' down-line-or-beginning-search
+bindkey '^[OA' up-line-or-beginning-search
+bindkey '^[OB' down-line-or-beginning-search
+
 source "$HOME/.dotfiles/zsh/functions.zsh"
 source "$HOME/.dotfiles/zsh/aliases.zsh"
 export PATH="$HOME/.local/bin:$PATH"
