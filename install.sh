@@ -63,58 +63,70 @@ if has_gui && [ ! -f "$HOME/.local/share/fonts/FiraCodeNerdFont-Regular.ttf" ]; 
   fc-cache -f
 fi
 
-# Install Neovim (nvim uses: x86_64 / arm64)
+# Resolve a repo's latest release tag WITHOUT the GitHub API (no rate limit).
+# /releases/latest redirects to /releases/tag/<tag>; we read <tag> from the
+# effective URL. Echoes the tag (e.g. v0.62.2) or empty string on failure.
+gh_latest_tag() {
+  curl -fsSLI -o /dev/null -w '%{url_effective}' \
+    "https://github.com/$1/releases/latest" 2>/dev/null | sed -n 's#.*/tag/##p'
+}
+
+# Install Neovim (asset: nvim-linux-{x86_64,arm64}.tar.gz)
 case "$ARCH" in
   x86_64)  NVIM_ARCH="x86_64" ;;
   aarch64) NVIM_ARCH="arm64" ;;
 esac
-NVIM_VERSION=$(curl -s https://api.github.com/repos/neovim/neovim/releases/latest | grep -Po '"tag_name": "\K[^"]*')
+NVIM_TAG=$(gh_latest_tag neovim/neovim)
+[ -n "$NVIM_TAG" ] || { fmt_error "Failed to resolve neovim version"; exit 1; }
 curl -fL --retry 3 --retry-delay 2 --retry-all-errors -O \
-  "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/nvim-linux-${NVIM_ARCH}.tar.gz" \
+  "https://github.com/neovim/neovim/releases/download/${NVIM_TAG}/nvim-linux-${NVIM_ARCH}.tar.gz" \
   || { fmt_error "Failed to download neovim"; exit 1; }
 $SUDO rm -rf "/opt/nvim-linux-${NVIM_ARCH}"
 $SUDO tar -C /opt -xzf "nvim-linux-${NVIM_ARCH}.tar.gz" && rm -f "nvim-linux-${NVIM_ARCH}.tar.gz"
 $SUDO ln -sf "/opt/nvim-linux-${NVIM_ARCH}/bin/nvim" /usr/local/bin/nvim
 
-# Install lazygit (lazygit uses: x86_64 / arm64)
+# Install lazygit (asset: lazygit_{version}_linux_{x86_64,arm64}.tar.gz)
 if ! command -v lazygit >/dev/null 2>&1; then
   case "$ARCH" in
     x86_64)  LG_ARCH="x86_64" ;;
     aarch64) LG_ARCH="arm64" ;;
   esac
-  LAZYGIT_VERSION=$(curl -s https://api.github.com/repos/jesseduffield/lazygit/releases/latest | grep -Po '"tag_name": "v\K[^"]*')
+  LG_TAG=$(gh_latest_tag jesseduffield/lazygit)
+  LG_VER=${LG_TAG#v}
+  [ -n "$LG_VER" ] || { fmt_error "Failed to resolve lazygit version"; exit 1; }
   curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/lazygit.tar.gz \
-    "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_linux_${LG_ARCH}.tar.gz"
+    "https://github.com/jesseduffield/lazygit/releases/download/${LG_TAG}/lazygit_${LG_VER}_linux_${LG_ARCH}.tar.gz" \
+    || { fmt_error "Failed to download lazygit"; exit 1; }
   $SUDO tar -C /usr/local/bin -xzf /tmp/lazygit.tar.gz lazygit
   rm -f /tmp/lazygit.tar.gz
 fi
 
-# Install zellij (zellij uses: x86_64 / aarch64)
+# Install zellij (asset: zellij-{x86_64,aarch64}-unknown-linux-musl.tar.gz)
 if ! command -v zellij >/dev/null 2>&1; then
   case "$ARCH" in
     x86_64)  ZJ_ARCH="x86_64" ;;
     aarch64) ZJ_ARCH="aarch64" ;;
   esac
-  ZJ_VERSION=$(curl -s https://api.github.com/repos/zellij-org/zellij/releases/latest | grep -Po '"tag_name": "\K[^"]*')
+  # No version in the asset name, so latest/download resolves directly.
   curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/zellij.tar.gz \
-    "https://github.com/zellij-org/zellij/releases/download/${ZJ_VERSION}/zellij-${ZJ_ARCH}-unknown-linux-musl.tar.gz"
+    "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${ZJ_ARCH}-unknown-linux-musl.tar.gz" \
+    || { fmt_error "Failed to download zellij"; exit 1; }
   $SUDO tar -C /usr/local/bin -xzf /tmp/zellij.tar.gz zellij
   rm -f /tmp/zellij.tar.gz
 fi
 
-# Install sshm (interactive SSH host manager with tags)
-# Naming differs from other projects: asset is sshm-linux-{amd64,arm64} and the
-# extracted binary keeps that same name, so it must be renamed to sshm.
+# Install sshm (asset: sshm_Linux_{x86_64,arm64}.tar.gz; binary inside is "sshm")
 if ! command -v sshm >/dev/null 2>&1; then
   case "$ARCH" in
-    x86_64)  SSHM_ARCH="amd64" ;;
+    x86_64)  SSHM_ARCH="x86_64" ;;
     aarch64) SSHM_ARCH="arm64" ;;
   esac
-  SSHM_VERSION=$(curl -s https://api.github.com/repos/Gu1llaum-3/sshm/releases/latest | grep -Po '"tag_name": "\K[^"]*')
+  SSHM_TAG=$(gh_latest_tag Gu1llaum-3/sshm)
+  [ -n "$SSHM_TAG" ] || { fmt_error "Failed to resolve sshm version"; exit 1; }
   curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/sshm.tar.gz \
-    "https://github.com/Gu1llaum-3/sshm/releases/download/${SSHM_VERSION}/sshm-linux-${SSHM_ARCH}.tar.gz"
-  $SUDO tar -C /usr/local/bin -xzf /tmp/sshm.tar.gz "sshm-linux-${SSHM_ARCH}"
-  $SUDO mv "/usr/local/bin/sshm-linux-${SSHM_ARCH}" /usr/local/bin/sshm
+    "https://github.com/Gu1llaum-3/sshm/releases/download/${SSHM_TAG}/sshm_Linux_${SSHM_ARCH}.tar.gz" \
+    || { fmt_error "Failed to download sshm"; exit 1; }
+  $SUDO tar -C /usr/local/bin -xzf /tmp/sshm.tar.gz sshm
   rm -f /tmp/sshm.tar.gz
 fi
 
