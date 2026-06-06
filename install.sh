@@ -27,10 +27,16 @@ case "$ARCH" in
   *) fmt_error "Unsupported architecture: $ARCH (expected x86_64 or aarch64)"; exit 1 ;;
 esac
 
-# Preflight checks
-if ! command -v sudo >/dev/null 2>&1; then
-  fmt_error "sudo is required to run this script"
-  exit 1
+# Privilege escalation: use sudo only when not already root.
+# In proot/containers we're already root and sudo can't elevate (no_new_privs).
+if [ "$(id -u)" -eq 0 ]; then
+  SUDO=""
+else
+  if ! command -v sudo >/dev/null 2>&1; then
+    fmt_error "sudo is required to run this script as a non-root user"
+    exit 1
+  fi
+  SUDO="sudo"
 fi
 
 # Get the repo
@@ -41,8 +47,8 @@ else
 fi
 
 # Update and install packages
-sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get autoremove -y
-sudo apt-get install -y curl git zsh unzip ripgrep fd-find fzf eza keychain
+$SUDO apt-get update -y && $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
+$SUDO apt-get install -y curl git zsh unzip ripgrep fd-find fzf eza keychain
 
 # Symlink fdfind to fd (Ubuntu names it fdfind)
 mkdir -p "$HOME/.local/bin"
@@ -64,9 +70,9 @@ case "$ARCH" in
 esac
 curl -LO "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-${NVIM_ARCH}.tar.gz" \
   || { fmt_error "Failed to download neovim"; exit 1; }
-sudo rm -rf "/opt/nvim-linux-${NVIM_ARCH}"
-sudo tar -C /opt -xzf "nvim-linux-${NVIM_ARCH}.tar.gz" && rm -f "nvim-linux-${NVIM_ARCH}.tar.gz"
-sudo ln -sf "/opt/nvim-linux-${NVIM_ARCH}/bin/nvim" /usr/local/bin/nvim
+$SUDO rm -rf "/opt/nvim-linux-${NVIM_ARCH}"
+$SUDO tar -C /opt -xzf "nvim-linux-${NVIM_ARCH}.tar.gz" && rm -f "nvim-linux-${NVIM_ARCH}.tar.gz"
+$SUDO ln -sf "/opt/nvim-linux-${NVIM_ARCH}/bin/nvim" /usr/local/bin/nvim
 
 # Install lazygit (lazygit uses: x86_64 / arm64)
 if ! command -v lazygit >/dev/null 2>&1; then
@@ -76,7 +82,7 @@ if ! command -v lazygit >/dev/null 2>&1; then
   esac
   LAZYGIT_VERSION=$(curl -s https://api.github.com/repos/jesseduffield/lazygit/releases/latest | grep -Po '"tag_name": "v\K[^"]*')
   curl -fsSL -o /tmp/lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_${LG_ARCH}.tar.gz"
-  sudo tar -C /usr/local/bin -xzf /tmp/lazygit.tar.gz lazygit
+  $SUDO tar -C /usr/local/bin -xzf /tmp/lazygit.tar.gz lazygit
   rm -f /tmp/lazygit.tar.gz
 fi
 
@@ -87,7 +93,7 @@ if ! command -v zellij >/dev/null 2>&1; then
     aarch64) ZJ_ARCH="aarch64" ;;
   esac
   curl -fsSL -o /tmp/zellij.tar.gz "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${ZJ_ARCH}-unknown-linux-musl.tar.gz"
-  sudo tar -C /usr/local/bin -xzf /tmp/zellij.tar.gz zellij
+  $SUDO tar -C /usr/local/bin -xzf /tmp/zellij.tar.gz zellij
   rm -f /tmp/zellij.tar.gz
 fi
 
@@ -100,16 +106,16 @@ if ! command -v sshm >/dev/null 2>&1; then
     aarch64) SSHM_ARCH="arm64" ;;
   esac
   curl -fsSL -o /tmp/sshm.tar.gz "https://github.com/Gu1llaum-3/sshm/releases/latest/download/sshm-linux-${SSHM_ARCH}.tar.gz"
-  sudo tar -C /usr/local/bin -xzf /tmp/sshm.tar.gz "sshm-linux-${SSHM_ARCH}"
-  sudo mv "/usr/local/bin/sshm-linux-${SSHM_ARCH}" /usr/local/bin/sshm
+  $SUDO tar -C /usr/local/bin -xzf /tmp/sshm.tar.gz "sshm-linux-${SSHM_ARCH}"
+  $SUDO mv "/usr/local/bin/sshm-linux-${SSHM_ARCH}" /usr/local/bin/sshm
   rm -f /tmp/sshm.tar.gz
 fi
 
 # Install Alacritty (GUI only)
 if has_gui && ! command -v alacritty >/dev/null 2>&1; then
-  sudo apt-get install -y software-properties-common
-  sudo add-apt-repository -y ppa:aslatter/ppa
-  sudo apt-get update -qq && sudo apt-get install -y alacritty
+  $SUDO apt-get install -y software-properties-common
+  $SUDO add-apt-repository -y ppa:aslatter/ppa
+  $SUDO apt-get update -qq && $SUDO apt-get install -y alacritty
 fi
 
 # Install Oh My Zsh framework
