@@ -68,7 +68,9 @@ case "$ARCH" in
   x86_64)  NVIM_ARCH="x86_64" ;;
   aarch64) NVIM_ARCH="arm64" ;;
 esac
-curl -LO "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-${NVIM_ARCH}.tar.gz" \
+NVIM_VERSION=$(curl -s https://api.github.com/repos/neovim/neovim/releases/latest | grep -Po '"tag_name": "\K[^"]*')
+curl -fL --retry 3 --retry-delay 2 --retry-all-errors -O \
+  "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/nvim-linux-${NVIM_ARCH}.tar.gz" \
   || { fmt_error "Failed to download neovim"; exit 1; }
 $SUDO rm -rf "/opt/nvim-linux-${NVIM_ARCH}"
 $SUDO tar -C /opt -xzf "nvim-linux-${NVIM_ARCH}.tar.gz" && rm -f "nvim-linux-${NVIM_ARCH}.tar.gz"
@@ -81,7 +83,8 @@ if ! command -v lazygit >/dev/null 2>&1; then
     aarch64) LG_ARCH="arm64" ;;
   esac
   LAZYGIT_VERSION=$(curl -s https://api.github.com/repos/jesseduffield/lazygit/releases/latest | grep -Po '"tag_name": "v\K[^"]*')
-  curl -fsSL -o /tmp/lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_${LG_ARCH}.tar.gz"
+  curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/lazygit.tar.gz \
+    "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_${LG_ARCH}.tar.gz"
   $SUDO tar -C /usr/local/bin -xzf /tmp/lazygit.tar.gz lazygit
   rm -f /tmp/lazygit.tar.gz
 fi
@@ -92,7 +95,9 @@ if ! command -v zellij >/dev/null 2>&1; then
     x86_64)  ZJ_ARCH="x86_64" ;;
     aarch64) ZJ_ARCH="aarch64" ;;
   esac
-  curl -fsSL -o /tmp/zellij.tar.gz "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${ZJ_ARCH}-unknown-linux-musl.tar.gz"
+  ZJ_VERSION=$(curl -s https://api.github.com/repos/zellij-org/zellij/releases/latest | grep -Po '"tag_name": "\K[^"]*')
+  curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/zellij.tar.gz \
+    "https://github.com/zellij-org/zellij/releases/download/${ZJ_VERSION}/zellij-${ZJ_ARCH}-unknown-linux-musl.tar.gz"
   $SUDO tar -C /usr/local/bin -xzf /tmp/zellij.tar.gz zellij
   rm -f /tmp/zellij.tar.gz
 fi
@@ -105,7 +110,9 @@ if ! command -v sshm >/dev/null 2>&1; then
     x86_64)  SSHM_ARCH="amd64" ;;
     aarch64) SSHM_ARCH="arm64" ;;
   esac
-  curl -fsSL -o /tmp/sshm.tar.gz "https://github.com/Gu1llaum-3/sshm/releases/latest/download/sshm-linux-${SSHM_ARCH}.tar.gz"
+  SSHM_VERSION=$(curl -s https://api.github.com/repos/Gu1llaum-3/sshm/releases/latest | grep -Po '"tag_name": "\K[^"]*')
+  curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/sshm.tar.gz \
+    "https://github.com/Gu1llaum-3/sshm/releases/download/${SSHM_VERSION}/sshm-linux-${SSHM_ARCH}.tar.gz"
   $SUDO tar -C /usr/local/bin -xzf /tmp/sshm.tar.gz "sshm-linux-${SSHM_ARCH}"
   $SUDO mv "/usr/local/bin/sshm-linux-${SSHM_ARCH}" /usr/local/bin/sshm
   rm -f /tmp/sshm.tar.gz
