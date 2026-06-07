@@ -58,8 +58,14 @@ if [ "$IS_TERMUX" -eq 1 ]; then
   pkg update -y && pkg upgrade -y
   pkg install -y \
     git zsh tmux neovim zellij lazygit starship \
-    zsh-autosuggestions zsh-syntax-highlighting \
     fzf ripgrep fd eza openssh curl unzip golang
+
+  # zsh plugins: not packaged for Termux, clone them (sourced from ~/.zsh/plugins)
+  mkdir -p "$HOME/.zsh/plugins"
+  [ -d "$HOME/.zsh/plugins/zsh-autosuggestions" ] || \
+    git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$HOME/.zsh/plugins/zsh-autosuggestions"
+  [ -d "$HOME/.zsh/plugins/zsh-syntax-highlighting" ] || \
+    git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$HOME/.zsh/plugins/zsh-syntax-highlighting"
 
   # sshm: not in Termux repos, build from source (pure Go, no cgo needed).
   if ! command -v sshm >/dev/null 2>&1; then
@@ -105,8 +111,7 @@ fi
 # =============================================================================
 
 $SUDO apt-get update -y && $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
-$SUDO apt-get install -y curl git zsh tmux unzip ripgrep fd-find fzf eza keychain \
-  zsh-autosuggestions zsh-syntax-highlighting
+$SUDO apt-get install -y curl git zsh tmux unzip ripgrep fd-find fzf eza keychain
 
 # Symlink fdfind to fd (Ubuntu names it fdfind)
 mkdir -p "$HOME/.local/bin"
@@ -196,8 +201,13 @@ fi
 if ! command -v starship >/dev/null 2>&1; then
   curl -fsSL https://starship.rs/install.sh | $SUDO sh -s -- --yes
 fi
-# zsh-autosuggestions / zsh-syntax-highlighting come from apt (installed above);
-# the .zshrc sources them from /usr/share or $PREFIX/share automatically.
+
+# zsh plugins: clone them (same mechanism as Termux, sourced from ~/.zsh/plugins)
+mkdir -p "$HOME/.zsh/plugins"
+[ -d "$HOME/.zsh/plugins/zsh-autosuggestions" ] || \
+  git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$HOME/.zsh/plugins/zsh-autosuggestions"
+[ -d "$HOME/.zsh/plugins/zsh-syntax-highlighting" ] || \
+  git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$HOME/.zsh/plugins/zsh-syntax-highlighting"
 
 # Configure Neovim
 mkdir -p "$HOME/.config/nvim"
