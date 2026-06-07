@@ -57,7 +57,7 @@ fi
 if [ "$IS_TERMUX" -eq 1 ]; then
   pkg update -y && pkg upgrade -y
   pkg install -y \
-    git zsh tmux neovim zellij lazygit starship \
+    git zsh neovim zellij lazygit starship \
     fzf ripgrep fd eza openssh curl unzip golang
 
   # zsh plugins: not packaged for Termux, clone them (sourced from ~/.zsh/plugins)
@@ -71,6 +71,16 @@ if [ "$IS_TERMUX" -eq 1 ]; then
   if ! command -v sshm >/dev/null 2>&1; then
     go install github.com/Gu1llaum-3/sshm@latest \
       || fmt_error "Failed to build sshm (continuing without it)"
+  fi
+
+  # Nerd Font: on Termux the font is an APP setting, not a system font.
+  # Termux renders with ~/.termux/font.ttf, so fc-cache/system fonts are useless.
+  if [ ! -f "$HOME/.termux/font.ttf" ]; then
+    mkdir -p "$HOME/.termux"
+    curl -fL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
+      "https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFont-Regular.ttf" \
+      && command -v termux-reload-settings >/dev/null 2>&1 && termux-reload-settings \
+      || fmt_error "Failed to install Termux Nerd Font (icons may be missing)"
   fi
 
   # Neovim config (your own config lives in the repo under nvim/)
@@ -111,7 +121,7 @@ fi
 # =============================================================================
 
 $SUDO apt-get update -y && $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
-$SUDO apt-get install -y curl git zsh tmux unzip ripgrep fd-find fzf eza keychain
+$SUDO apt-get install -y curl git zsh unzip ripgrep fd-find fzf eza keychain
 
 # Symlink fdfind to fd (Ubuntu names it fdfind)
 mkdir -p "$HOME/.local/bin"
