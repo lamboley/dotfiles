@@ -1,9 +1,9 @@
 # ~/.zshrc — sans framework, prompt via starship
 
-# ---- PATH --------------------------------------------------------------------
+# --- PATH ---
 export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
 
-# ---- Historique --------------------------------------------------------------
+# --- Historique ---
 HISTFILE="$HOME/.zsh_history"
 HISTSIZE=10000
 SAVEHIST=10000
@@ -11,24 +11,23 @@ setopt HIST_IGNORE_ALL_DUPS
 setopt SHARE_HISTORY
 setopt INC_APPEND_HISTORY
 
-# ---- Complétion (avec cache pour un démarrage rapide) ------------------------
+# --- Complétion ---
 autoload -Uz compinit
 # -C : utilise le cache sans re-auditer les permissions à chaque démarrage
 compinit -C
 zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 
-# ---- Aliases & fonctions perso ----------------------------------------------
+# --- Aliases & fonctions perso ---
 [ -f "$HOME/.dotfiles/zsh/functions.zsh" ] && source "$HOME/.dotfiles/zsh/functions.zsh"
 [ -f "$HOME/.dotfiles/zsh/aliases.zsh" ]   && source "$HOME/.dotfiles/zsh/aliases.zsh"
 
-# ---- keychain (agent SSH) — pas en proot/tablette ---------------------------
+# --- keychain ---
 if ! grep -qi proot /proc/version 2>/dev/null && command -v keychain >/dev/null 2>&1; then
   eval "$(keychain --eval --quiet --agents ssh)"
 fi
 
-# ---- Plugins (sourcés directement, sans framework) --------------------------
-# Chemins selon l'install : Termux (pkg), Ubuntu/Debian (apt), clone manuel.
+# --- Plugins ---
 for d in \
   "$PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
   "/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
@@ -36,7 +35,7 @@ for d in \
   [ -f "$d" ] && { source "$d"; break; }
 done
 
-# zsh-syntax-highlighting DOIT être sourcé en dernier (exigence du plugin)
+# zsh-syntax-highlighting DOIT être sourcé en dernier
 for d in \
   "$PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
   "/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
@@ -44,5 +43,5 @@ for d in \
   [ -f "$d" ] && { source "$d"; break; }
 done
 
-# ---- Prompt (starship, tout en bas) -----------------------------------------
+# --- Prompt (starship, tout en bas) ---
 eval "$(starship init zsh)"
