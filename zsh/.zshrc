@@ -1,29 +1,48 @@
-# Proot (Termux/Android): Rust temp_dir() résout vers un chemin hors rootfs,
-# ce qui fait planter Zellij (atomic_create_dir sur ZELLIJ_TMP_DIR).
-# On force TMPDIR vers un dossier garanti présent dans le rootfs.
-if grep -qi proot /proc/version 2>/dev/null; then
-  export TMPDIR="$HOME/.zellij-tmp"
-  mkdir -p "$TMPDIR"
+# ~/.zshrc — sans framework, prompt via starship
+
+# ---- PATH --------------------------------------------------------------------
+export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
+
+# ---- Historique --------------------------------------------------------------
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=10000
+SAVEHIST=10000
+setopt HIST_IGNORE_ALL_DUPS
+setopt SHARE_HISTORY
+setopt INC_APPEND_HISTORY
+
+# ---- Complétion (avec cache pour un démarrage rapide) ------------------------
+autoload -Uz compinit
+# -C : utilise le cache sans re-auditer les permissions à chaque démarrage
+compinit -C
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
+
+# ---- Aliases & fonctions perso ----------------------------------------------
+[ -f "$HOME/.dotfiles/zsh/functions.zsh" ] && source "$HOME/.dotfiles/zsh/functions.zsh"
+[ -f "$HOME/.dotfiles/zsh/aliases.zsh" ]   && source "$HOME/.dotfiles/zsh/aliases.zsh"
+
+# ---- keychain (agent SSH) — pas en proot/tablette ---------------------------
+if ! grep -qi proot /proc/version 2>/dev/null && command -v keychain >/dev/null 2>&1; then
+  eval "$(keychain --eval --quiet --agents ssh)"
 fi
 
-export ZSH="$HOME/.oh-my-zsh"
-ZSH_THEME="robbyrussell"
-plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
-source $ZSH/oh-my-zsh.sh
+# ---- Plugins (sourcés directement, sans framework) --------------------------
+# Chemins selon l'install : Termux (pkg), Ubuntu/Debian (apt), clone manuel.
+for d in \
+  "$PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
+  "/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
+  "$HOME/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"; do
+  [ -f "$d" ] && { source "$d"; break; }
+done
 
-# History search with up/down arrows.
-# Binds both normal (^[[A) and application (^[OA) cursor sequences so it works
-# inside Zellij/tmux as well as in a bare terminal.
-autoload -U up-line-or-beginning-search down-line-or-beginning-search
-zle -N up-line-or-beginning-search
-zle -N down-line-or-beginning-search
-bindkey '^[[A' up-line-or-beginning-search
-bindkey '^[[B' down-line-or-beginning-search
-bindkey '^[OA' up-line-or-beginning-search
-bindkey '^[OB' down-line-or-beginning-search
+# zsh-syntax-highlighting DOIT être sourcé en dernier (exigence du plugin)
+for d in \
+  "$PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
+  "/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
+  "$HOME/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"; do
+  [ -f "$d" ] && { source "$d"; break; }
+done
 
-source "$HOME/.dotfiles/zsh/functions.zsh"
-source "$HOME/.dotfiles/zsh/aliases.zsh"
-export PATH="$HOME/.local/bin:$PATH"
-
-eval "$(keychain --eval --quiet --agents ssh)"
+# ---- Prompt (starship, tout en bas) -----------------------------------------
+eval "$(starship init zsh)"
