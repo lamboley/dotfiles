@@ -10,10 +10,6 @@ opt.shiftwidth = 2
 opt.tabstop = 2
 opt.smartindent = true
 
--- Recherche insensible à la casse
-opt.ignorecase = true
-opt.smartcase = true
-
 -- Confort visuel
 opt.wrap = false         -- pas de retour à la ligne automatique
 opt.signcolumn = "yes"   -- colonne des signes toujours là
