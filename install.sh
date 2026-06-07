@@ -57,7 +57,8 @@ fi
 if [ "$IS_TERMUX" -eq 1 ]; then
   pkg update -y && pkg upgrade -y
   pkg install -y \
-    git zsh tmux neovim zellij lazygit \
+    git zsh tmux neovim zellij lazygit starship \
+    zsh-autosuggestions zsh-syntax-highlighting \
     fzf ripgrep fd eza openssh curl unzip golang
 
   # sshm: not in Termux repos, build from source (pure Go, no cgo needed).
@@ -65,17 +66,6 @@ if [ "$IS_TERMUX" -eq 1 ]; then
     go install github.com/Gu1llaum-3/sshm@latest \
       || fmt_error "Failed to build sshm (continuing without it)"
   fi
-
-  # Oh My Zsh framework
-  if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
-      sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-  fi
-  ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
-  [ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ] || \
-    git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-  [ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ] || \
-    git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
 
   # Neovim config (your own config lives in the repo under nvim/)
   mkdir -p "$HOME/.config/nvim"
@@ -115,7 +105,8 @@ fi
 # =============================================================================
 
 $SUDO apt-get update -y && $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
-$SUDO apt-get install -y curl git zsh tmux unzip ripgrep fd-find fzf eza keychain
+$SUDO apt-get install -y curl git zsh tmux unzip ripgrep fd-find fzf eza keychain \
+  zsh-autosuggestions zsh-syntax-highlighting
 
 # Symlink fdfind to fd (Ubuntu names it fdfind)
 mkdir -p "$HOME/.local/bin"
@@ -201,19 +192,12 @@ if has_gui && ! command -v alacritty >/dev/null 2>&1; then
   $SUDO apt-get update -qq && $SUDO apt-get install -y alacritty
 fi
 
-# Install Oh My Zsh framework
-if [ ! -d "$HOME/.oh-my-zsh" ]; then
-  RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+# Install starship prompt (not in apt; official installer to /usr/local/bin)
+if ! command -v starship >/dev/null 2>&1; then
+  curl -fsSL https://starship.rs/install.sh | $SUDO sh -s -- --yes
 fi
-
-ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
-
-[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ] || \
-  git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-
-[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ] || \
-  git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+# zsh-autosuggestions / zsh-syntax-highlighting come from apt (installed above);
+# the .zshrc sources them from /usr/share or $PREFIX/share automatically.
 
 # Configure Neovim
 mkdir -p "$HOME/.config/nvim"
