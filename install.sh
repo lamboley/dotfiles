@@ -2,10 +2,6 @@
 #
 # This script should be run via curl:
 #   sh -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"
-# or via wget:
-#   sh -c "$(wget -qO- https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"
-# or via fetch:
-#   sh -c "$(fetch -o - https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"
 #
 set -e
 
@@ -20,6 +16,14 @@ has_gui() {
   [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]
 }
 
+# Detect Termux: it exports $TERMUX_VERSION and uses $PREFIX for its tree.
+# Termux is native (bionic) - no proot, no sudo, packages come from `pkg`.
+if [ -n "$TERMUX_VERSION" ]; then
+  IS_TERMUX=1
+else
+  IS_TERMUX=0
+fi
+
 # Detect CPU architecture once; map per-project below since naming conventions differ.
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -27,9 +31,8 @@ case "$ARCH" in
   *) fmt_error "Unsupported architecture: $ARCH (expected x86_64 or aarch64)"; exit 1 ;;
 esac
 
-# Privilege escalation: use sudo only when not already root.
-# In proot/containers we're already root and sudo can't elevate (no_new_privs).
-if [ "$(id -u)" -eq 0 ]; then
+# Privilege escalation: use sudo only when not already root and not on Termux.
+if [ "$IS_TERMUX" -eq 1 ] || [ "$(id -u)" -eq 0 ]; then
   SUDO=""
 else
   if ! command -v sudo >/dev/null 2>&1; then
@@ -46,9 +49,73 @@ else
   git clone --depth=1 "$REPO" "$DOTFILES" || { fmt_error "Failed to clone dotfiles"; exit 1; }
 fi
 
-# Update and install packages
+# =============================================================================
+# TERMUX NATIVE BRANCH
+# Everything is available via `pkg`: no GitHub binary downloads, no glibc,
+# no sudo, no /opt. sshm is the only tool not packaged: built with `go install`.
+# =============================================================================
+if [ "$IS_TERMUX" -eq 1 ]; then
+  pkg update -y && pkg upgrade -y
+  pkg install -y \
+    git zsh tmux neovim zellij lazygit \
+    fzf ripgrep fd eza openssh curl unzip golang
+
+  # sshm: not in Termux repos, build from source (pure Go, no cgo needed).
+  if ! command -v sshm >/dev/null 2>&1; then
+    go install github.com/Gu1llaum-3/sshm@latest \
+      || fmt_error "Failed to build sshm (continuing without it)"
+  fi
+
+  # Oh My Zsh framework
+  if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
+      sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+  fi
+  ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
+  [ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ] || \
+    git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+  [ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ] || \
+    git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+
+  # Neovim config (your own config lives in the repo under nvim/)
+  mkdir -p "$HOME/.config/nvim"
+  cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
+
+  # Symlinks (configs are portable across Termux and desktop)
+  ln -s -f "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"
+  mkdir -p "$HOME/.config/zellij"
+  ln -s -f "$DOTFILES/zellij/config.kdl" "$HOME/.config/zellij/config.kdl"
+
+  # SSH client config (same hardened layout as desktop)
+  mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
+  chmod 700 "$HOME/.ssh" "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
+  chmod 600 "$DOTFILES/ssh/config" "$DOTFILES/ssh/hardening.conf"
+  ln -s -f "$DOTFILES/ssh/hardening.conf" "$HOME/.ssh/hardening.conf"
+  if [ -z "$(ls -A "$HOME/.ssh/config.d" 2>/dev/null)" ]; then
+    cp "$DOTFILES/ssh/config.d/00-example.conf" "$HOME/.ssh/config.d/00-example.conf"
+  fi
+  chmod 600 "$HOME"/.ssh/config.d/*.conf 2>/dev/null || true
+  if [ -e "$HOME/.ssh/config" ] && [ ! -L "$HOME/.ssh/config" ]; then
+    cp "$HOME/.ssh/config" "$HOME/.ssh/config.pre-dotfiles.bak"
+  fi
+  ln -s -f "$DOTFILES/ssh/config" "$HOME/.ssh/config"
+  find "$HOME/.ssh" -maxdepth 1 -type f -name 'id_*' ! -name '*.pub' -exec chmod 600 {} \; 2>/dev/null || true
+
+  # Default shell (chsh works on native Termux, unlike proot)
+  if [ "$(basename "${SHELL:-}")" != "zsh" ]; then
+    chsh -s zsh
+  fi
+
+  echo "Termux setup complete. Restart Termux to land in zsh."
+  exit 0
+fi
+
+# =============================================================================
+# UBUNTU / GLIBC BRANCH (desktop, servers, proot Ubuntu)
+# =============================================================================
+
 $SUDO apt-get update -y && $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
-$SUDO apt-get install -y curl git zsh unzip ripgrep fd-find fzf eza keychain
+$SUDO apt-get install -y curl git zsh tmux unzip ripgrep fd-find fzf eza keychain
 
 # Symlink fdfind to fd (Ubuntu names it fdfind)
 mkdir -p "$HOME/.local/bin"
@@ -64,8 +131,6 @@ if has_gui && [ ! -f "$HOME/.local/share/fonts/FiraCodeNerdFont-Regular.ttf" ]; 
 fi
 
 # Resolve a repo's latest release tag WITHOUT the GitHub API (no rate limit).
-# /releases/latest redirects to /releases/tag/<tag>; we read <tag> from the
-# effective URL. Echoes the tag (e.g. v0.62.2) or empty string on failure.
 gh_latest_tag() {
   curl -fsSLI -o /dev/null -w '%{url_effective}' \
     "https://github.com/$1/releases/latest" 2>/dev/null | sed -n 's#.*/tag/##p'
@@ -107,7 +172,6 @@ if ! command -v zellij >/dev/null 2>&1; then
     x86_64)  ZJ_ARCH="x86_64" ;;
     aarch64) ZJ_ARCH="aarch64" ;;
   esac
-  # No version in the asset name, so latest/download resolves directly.
   curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/zellij.tar.gz \
     "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${ZJ_ARCH}-unknown-linux-musl.tar.gz" \
     || { fmt_error "Failed to download zellij"; exit 1; }
@@ -152,10 +216,7 @@ ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
   git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
 
 # Configure Neovim
-if [ ! -d "$HOME/.config/nvim" ]; then
-  git clone https://github.com/LazyVim/starter "$HOME/.config/nvim"
-  rm -rf "$HOME/.config/nvim/.git"
-fi
+mkdir -p "$HOME/.config/nvim"
 cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
 
 # Symlinks
@@ -169,25 +230,22 @@ if has_gui; then
   ln -s -f "$DOTFILES/alacritty/alacritty.toml" "$HOME/.config/alacritty/alacritty.toml"
 fi
 
-# SSH — hardened client config via native Include, with strict permissions (CIS)
+# SSH - hardened client config via native Include, with strict permissions (CIS)
 mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
 chmod 700 "$HOME/.ssh" "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
 chmod 600 "$DOTFILES/ssh/config" "$DOTFILES/ssh/hardening.conf"
 ln -s -f "$DOTFILES/ssh/hardening.conf" "$HOME/.ssh/hardening.conf"
 
-# Hosts stay out of the repo; seed an example if config.d is empty
 if [ -z "$(ls -A "$HOME/.ssh/config.d" 2>/dev/null)" ]; then
   cp "$DOTFILES/ssh/config.d/00-example.conf" "$HOME/.ssh/config.d/00-example.conf"
 fi
 chmod 600 "$HOME"/.ssh/config.d/*.conf 2>/dev/null || true
 
-# Entry config (Include directives): back up a foreign config, then symlink
 if [ -e "$HOME/.ssh/config" ] && [ ! -L "$HOME/.ssh/config" ]; then
   cp "$HOME/.ssh/config" "$HOME/.ssh/config.pre-dotfiles.bak"
 fi
 ln -s -f "$DOTFILES/ssh/config" "$HOME/.ssh/config"
 
-# Tighten permissions on existing private keys
 find "$HOME/.ssh" -maxdepth 1 -type f -name 'id_*' ! -name '*.pub' -exec chmod 600 {} \; 2>/dev/null || true
 
 # Set as default shell
