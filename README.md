@@ -5,16 +5,16 @@
 This repository contains my dotfiles.
 This will install and configure the following:
 
-- Zsh and Oh My Zsh
-- Neovim with LazyVim
-- FiraCode Nerd Font (GUI only)
-- Alacritty (GUI only)
+- Zsh
+- Helix
+- FiraCode Nerd Font
+- Alacritty
 - Zellij
-- Hardened SSH client config + sshm (interactive host manager)
+- Public SSH client config + sshm
 
 ## Installation
 
-__Ubuntu:__
+> ˋbashˋ is required.
 
 | Method    | Command                                                                                           |
 | :-------- | :------------------------------------------------------------------------------------------------ |
