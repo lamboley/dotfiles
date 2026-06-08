@@ -16,8 +16,22 @@ has_gui() {
   [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]
 }
 
+# Yes/no prompt that survives `curl | sh` by reading from the terminal directly.
+# In a non-interactive context (no tty), defaults to "yes" so unattended installs
+# get the full setup.
+ask() {
+  if [ ! -e /dev/tty ]; then
+    return 0
+  fi
+  printf '%s [Y/n] ' "$1"
+  read -r _answer < /dev/tty || return 0
+  case "$_answer" in
+    [nN] | [nN][oO]) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
 # Detect Termux: it exports $TERMUX_VERSION and uses $PREFIX for its tree.
-# Termux is native (bionic) - no proot, no sudo, packages come from `pkg`.
 if [ -n "$TERMUX_VERSION" ]; then
   IS_TERMUX=1
 else
@@ -42,6 +56,12 @@ else
   SUDO="sudo"
 fi
 
+# Resolve a repo's latest release tag WITHOUT the GitHub API (no rate limit).
+gh_latest_tag() {
+  curl -fsSLI -o /dev/null -w '%{url_effective}' \
+    "https://github.com/$1/releases/latest" 2>/dev/null | sed -n 's#.*/tag/##p'
+}
+
 # Get the repo
 if [ -d "$DOTFILES" ]; then
   git -C "$DOTFILES" pull --rebase origin master
@@ -49,16 +69,23 @@ else
   git clone --depth=1 "$REPO" "$DOTFILES" || { fmt_error "Failed to clone dotfiles"; exit 1; }
 fi
 
+# --- Editor choice (asked once, used in both branches) -----------------------
+INSTALL_NVIM=0
+INSTALL_HELIX=0
+if ask "Installer Neovim ?"; then INSTALL_NVIM=1; fi
+if ask "Installer Helix ?"; then INSTALL_HELIX=1; fi
+
 # =============================================================================
 # TERMUX NATIVE BRANCH
-# Everything is available via `pkg`: no GitHub binary downloads, no glibc,
-# no sudo, no /opt. sshm is the only tool not packaged: built with `go install`.
 # =============================================================================
 if [ "$IS_TERMUX" -eq 1 ]; then
   pkg update -y && pkg upgrade -y
   pkg install -y \
-    git zsh neovim zellij lazygit starship \
+    git zsh zellij lazygit starship \
     fzf ripgrep fd eza openssh curl unzip golang
+
+  [ "$INSTALL_NVIM" -eq 1 ] && pkg install -y neovim
+  [ "$INSTALL_HELIX" -eq 1 ] && pkg install -y helix
 
   # zsh plugins: not packaged for Termux, clone them (sourced from ~/.zsh/plugins)
   mkdir -p "$HOME/.zsh/plugins"
@@ -73,8 +100,7 @@ if [ "$IS_TERMUX" -eq 1 ]; then
       || fmt_error "Failed to build sshm (continuing without it)"
   fi
 
-  # Nerd Font: on Termux the font is an APP setting, not a system font.
-  # Termux renders with ~/.termux/font.ttf, so fc-cache/system fonts are useless.
+  # Nerd Font: on Termux the font is an APP setting (~/.termux/font.ttf).
   if [ ! -f "$HOME/.termux/font.ttf" ]; then
     mkdir -p "$HOME/.termux"
     curl -fL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
@@ -83,16 +109,22 @@ if [ "$IS_TERMUX" -eq 1 ]; then
       || fmt_error "Failed to install Termux Nerd Font (icons may be missing)"
   fi
 
-  # Neovim config (your own config lives in the repo under nvim/)
-  mkdir -p "$HOME/.config/nvim"
-  cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
+  # Editor configs (only deploy what was installed)
+  if [ "$INSTALL_NVIM" -eq 1 ]; then
+    mkdir -p "$HOME/.config/nvim"
+    cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
+  fi
+  if [ "$INSTALL_HELIX" -eq 1 ]; then
+    mkdir -p "$HOME/.config/helix"
+    cp -r "$DOTFILES/helix/." "$HOME/.config/helix/"
+  fi
 
-  # Symlinks (configs are portable across Termux and desktop)
+  # Symlinks
   ln -s -f "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"
   mkdir -p "$HOME/.config/zellij"
   ln -s -f "$DOTFILES/zellij/config.kdl" "$HOME/.config/zellij/config.kdl"
 
-  # SSH client config (same hardened layout as desktop)
+  # SSH client config
   mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 700 "$HOME/.ssh" "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 600 "$DOTFILES/ssh/config" "$DOTFILES/ssh/hardening.conf"
@@ -107,7 +139,7 @@ if [ "$IS_TERMUX" -eq 1 ]; then
   ln -s -f "$DOTFILES/ssh/config" "$HOME/.ssh/config"
   find "$HOME/.ssh" -maxdepth 1 -type f -name 'id_*' ! -name '*.pub' -exec chmod 600 {} \; 2>/dev/null || true
 
-  # Default shell (chsh works on native Termux, unlike proot)
+  # Default shell (chsh works on native Termux)
   if [ "$(basename "${SHELL:-}")" != "zsh" ]; then
     chsh -s zsh
   fi
@@ -136,25 +168,44 @@ if has_gui && [ ! -f "$HOME/.local/share/fonts/FiraCodeNerdFont-Regular.ttf" ]; 
   fc-cache -f
 fi
 
-# Resolve a repo's latest release tag WITHOUT the GitHub API (no rate limit).
-gh_latest_tag() {
-  curl -fsSLI -o /dev/null -w '%{url_effective}' \
-    "https://github.com/$1/releases/latest" 2>/dev/null | sed -n 's#.*/tag/##p'
-}
-
 # Install Neovim (asset: nvim-linux-{x86_64,arm64}.tar.gz)
-case "$ARCH" in
-  x86_64)  NVIM_ARCH="x86_64" ;;
-  aarch64) NVIM_ARCH="arm64" ;;
-esac
-NVIM_TAG=$(gh_latest_tag neovim/neovim)
-[ -n "$NVIM_TAG" ] || { fmt_error "Failed to resolve neovim version"; exit 1; }
-curl -fL --retry 3 --retry-delay 2 --retry-all-errors -O \
-  "https://github.com/neovim/neovim/releases/download/${NVIM_TAG}/nvim-linux-${NVIM_ARCH}.tar.gz" \
-  || { fmt_error "Failed to download neovim"; exit 1; }
-$SUDO rm -rf "/opt/nvim-linux-${NVIM_ARCH}"
-$SUDO tar -C /opt -xzf "nvim-linux-${NVIM_ARCH}.tar.gz" && rm -f "nvim-linux-${NVIM_ARCH}.tar.gz"
-$SUDO ln -sf "/opt/nvim-linux-${NVIM_ARCH}/bin/nvim" /usr/local/bin/nvim
+if [ "$INSTALL_NVIM" -eq 1 ]; then
+  case "$ARCH" in
+    x86_64)  NVIM_ARCH="x86_64" ;;
+    aarch64) NVIM_ARCH="arm64" ;;
+  esac
+  NVIM_TAG=$(gh_latest_tag neovim/neovim)
+  [ -n "$NVIM_TAG" ] || { fmt_error "Failed to resolve neovim version"; exit 1; }
+  curl -fL --retry 3 --retry-delay 2 --retry-all-errors -O \
+    "https://github.com/neovim/neovim/releases/download/${NVIM_TAG}/nvim-linux-${NVIM_ARCH}.tar.gz" \
+    || { fmt_error "Failed to download neovim"; exit 1; }
+  $SUDO rm -rf "/opt/nvim-linux-${NVIM_ARCH}"
+  $SUDO tar -C /opt -xzf "nvim-linux-${NVIM_ARCH}.tar.gz" && rm -f "nvim-linux-${NVIM_ARCH}.tar.gz"
+  $SUDO ln -sf "/opt/nvim-linux-${NVIM_ARCH}/bin/nvim" /usr/local/bin/nvim
+fi
+
+# Install Helix (asset: helix-{version}-{x86_64,aarch64}-linux.tar.xz)
+# The tarball ships an `hx` binary AND a `runtime/` dir that must be placed
+# where hx looks for it (~/.config/helix/runtime).
+if [ "$INSTALL_HELIX" -eq 1 ] && ! command -v hx >/dev/null 2>&1; then
+  case "$ARCH" in
+    x86_64)  HX_ARCH="x86_64" ;;
+    aarch64) HX_ARCH="aarch64" ;;
+  esac
+  HX_TAG=$(gh_latest_tag helix-editor/helix)
+  [ -n "$HX_TAG" ] || { fmt_error "Failed to resolve helix version"; exit 1; }
+  curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/helix.tar.xz \
+    "https://github.com/helix-editor/helix/releases/download/${HX_TAG}/helix-${HX_TAG}-${HX_ARCH}-linux.tar.xz" \
+    || { fmt_error "Failed to download helix"; exit 1; }
+  rm -rf /tmp/helix-extract && mkdir -p /tmp/helix-extract
+  tar -C /tmp/helix-extract -xJf /tmp/helix.tar.xz
+  HX_DIR="/tmp/helix-extract/helix-${HX_TAG}-${HX_ARCH}-linux"
+  $SUDO install -m 755 "$HX_DIR/hx" /usr/local/bin/hx
+  mkdir -p "$HOME/.config/helix"
+  rm -rf "$HOME/.config/helix/runtime"
+  cp -r "$HX_DIR/runtime" "$HOME/.config/helix/runtime"
+  rm -rf /tmp/helix.tar.xz /tmp/helix-extract
+fi
 
 # Install lazygit (asset: lazygit_{version}_linux_{x86_64,arm64}.tar.gz)
 if ! command -v lazygit >/dev/null 2>&1; then
@@ -219,9 +270,15 @@ mkdir -p "$HOME/.zsh/plugins"
 [ -d "$HOME/.zsh/plugins/zsh-syntax-highlighting" ] || \
   git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$HOME/.zsh/plugins/zsh-syntax-highlighting"
 
-# Configure Neovim
-mkdir -p "$HOME/.config/nvim"
-cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
+# Editor configs (only deploy what was installed)
+if [ "$INSTALL_NVIM" -eq 1 ]; then
+  mkdir -p "$HOME/.config/nvim"
+  cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
+fi
+if [ "$INSTALL_HELIX" -eq 1 ]; then
+  mkdir -p "$HOME/.config/helix"
+  cp -r "$DOTFILES/helix/." "$HOME/.config/helix/"
+fi
 
 # Symlinks
 ln -s -f "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"
