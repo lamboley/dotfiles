@@ -199,7 +199,7 @@ clone_or_update_repo() {
 clone_zsh_plugins() {
   mkdir -p "$HOME/.zsh/plugins"
   local p
-  for p in zsh-autosuggestions zsh-syntax-highlighting; do
+  for p in zsh-autosuggestions zsh-syntax-highlighting zsh-completions; do
     [[ -d "$HOME/.zsh/plugins/$p" ]] || \
       ensure git clone --depth=1 "https://github.com/zsh-users/$p" "$HOME/.zsh/plugins/$p"
   done
@@ -276,7 +276,7 @@ install_termux() {
   ensure pkg upgrade -y
   ensure pkg install -y \
     git zsh zellij lazygit starship \
-    fzf ripgrep fd eza openssh curl unzip golang
+    fzf ripgrep fd eza zoxide openssh curl unzip golang
 
   ensure pkg install -y helix
 
@@ -314,7 +314,7 @@ install_apt_packages() {
   ensure $SUDO apt-get update -y
   $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
   ensure $SUDO apt-get install -y \
-    curl git zsh unzip ripgrep fd-find fzf eza keychain
+    curl git zsh unzip ripgrep fd-find fzf eza zoxide keychain
   mkdir -p "$HOME/.local/bin"
   ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
 }
