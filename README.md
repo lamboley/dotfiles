@@ -18,5 +18,5 @@ __Ubuntu:__
 
 | Method    | Command                                                                                           |
 | :-------- | :------------------------------------------------------------------------------------------------ |
-| **curl**  | `sh -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh)"` |
-| **wget**  | `sh -c "$(wget -O- https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh)"`   |
+| **curl**  | `bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh)"` |
+| **wget**  | `bash -c "$(wget -O- https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh)"`   |
