@@ -15,17 +15,14 @@ set -euo pipefail
 # ==========================================================
 # Globals
 # ==========================================================
-
 DOTFILES="$HOME/.dotfiles"
 REPO="https://github.com/lamboley/dotfiles.git"
 
 IS_TERMUX=0
 ARCH=""
-ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64   (neovim, lazygit, sshm)
+ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64   (lazygit, sshm)
 ARCH_AARCH64=""  # x86_64 -> x86_64 ; aarch64 -> aarch64 (zellij, helix)
 SUDO=""
-INSTALL_NVIM=0
-INSTALL_HELIX=0
 FAILED_STEPS=()  # optional steps that failed (reported at the end)
 
 # Clean up any leftover temp files on exit, even if the script dies mid-way.
@@ -37,7 +34,6 @@ trap cleanup EXIT
 # ==========================================================
 # Output helpers (colors only when stdout is a terminal)
 # ==========================================================
-
 if [[ -t 1 ]]; then
   C_RED=$'\033[1;31m'; C_GREEN=$'\033[1;32m'
   C_BLUE=$'\033[1;34m'; C_RESET=$'\033[0m'
@@ -52,7 +48,6 @@ fmt_error() { printf '%sError:%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
 # ==========================================================
 # Small utilities
 # ==========================================================
-
 check_cmd() { command -v "$1" >/dev/null 2>&1; }
 
 need_cmd() {
@@ -126,7 +121,6 @@ backup_if_real() {
 # The helper owns the common parts (download + cleanup); the callback owns
 # the layout differences (/usr/local/bin vs /opt, runtime dir, etc.).
 # ==========================================================
-
 fetch_and_install() {
   local url="$1" extract_fn="$2"
   local tmp; tmp="$(mktemp)"
@@ -137,19 +131,12 @@ fetch_and_install() {
   rm -f "$tmp"
 }
 
-# --- Extraction callbacks ---
+# Extraction callbacks ------------------------------------------------------
 # Simple case: a .tar.gz containing a single binary -> /usr/local/bin.
 # Uses $EXTRACT_BIN (set by caller) as the binary name inside the tarball.
 # Callbacks return non-zero on failure so attempt() can record it.
 extract_single_bin() {
   $SUDO tar -C /usr/local/bin -xzf "$1" "$EXTRACT_BIN"
-}
-
-extract_neovim() {
-  # nvim ships a whole tree; install under /opt and symlink the binary.
-  $SUDO rm -rf "/opt/nvim-linux-${ARCH_ARM64}"
-  $SUDO tar -C /opt -xzf "$1" || return 1
-  $SUDO ln -sf "/opt/nvim-linux-${ARCH_ARM64}/bin/nvim" /usr/local/bin/nvim
 }
 
 extract_helix() {
@@ -168,7 +155,6 @@ extract_helix() {
 # ==========================================================
 # Detection / preflight
 # ==========================================================
-
 detect_env() {
   [[ -n "${TERMUX_VERSION:-}" ]] && IS_TERMUX=1
 
@@ -197,7 +183,6 @@ preflight() {
 # ==========================================================
 # Repo
 # ==========================================================
-
 clone_or_update_repo() {
   if [[ -d "$DOTFILES" ]]; then
     info "Updating dotfiles repo"
@@ -208,15 +193,9 @@ clone_or_update_repo() {
   fi
 }
 
-choose_editors() {
-  if ask "Installer Neovim ?"; then INSTALL_NVIM=1; fi
-  if ask "Installer Helix ?"; then INSTALL_HELIX=1; fi
-}
-
 # ==========================================================
 # Shared steps
 # ==========================================================
-
 clone_zsh_plugins() {
   mkdir -p "$HOME/.zsh/plugins"
   local p
@@ -227,14 +206,8 @@ clone_zsh_plugins() {
 }
 
 deploy_editor_configs() {
-  if [[ "$INSTALL_NVIM" -eq 1 ]]; then
-    mkdir -p "$HOME/.config/nvim"
-    cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
-  fi
-  if [[ "$INSTALL_HELIX" -eq 1 ]]; then
-    mkdir -p "$HOME/.config/helix"
-    cp -r "$DOTFILES/helix/." "$HOME/.config/helix/"
-  fi
+  mkdir -p "$HOME/.config/helix"
+  cp -r "$DOTFILES/helix/." "$HOME/.config/helix/"
 }
 
 deploy_common_symlinks() {
@@ -269,10 +242,9 @@ set_default_shell() {
   fi
 }
 
-# Language servers for Helix (Go + Bash). Only runs if Helix was installed.
+# Language servers for Helix (Go + Bash).
 # $1 = package manager for nodejs ("pkg" or "apt-get").
 install_helix_lsp() {
-  [[ "$INSTALL_HELIX" -eq 1 ]] || return 0
   info "Installing Helix language servers"
 
   if check_cmd go && ! check_cmd gopls; then
@@ -298,7 +270,6 @@ install_helix_lsp() {
 # ==========================================================
 # TERMUX branch
 # ==========================================================
-
 install_termux() {
   info "Termux detected — installing via pkg"
   ensure pkg update -y
@@ -307,8 +278,7 @@ install_termux() {
     git zsh zellij lazygit starship \
     fzf ripgrep fd eza openssh curl unzip golang
 
-  if [[ "$INSTALL_NVIM" -eq 1 ]]; then ensure pkg install -y neovim; fi
-  if [[ "$INSTALL_HELIX" -eq 1 ]]; then ensure pkg install -y helix; fi
+  ensure pkg install -y helix
 
   clone_zsh_plugins
 
@@ -339,7 +309,6 @@ install_termux() {
 # ==========================================================
 # UBUNTU / glibc branch
 # ==========================================================
-
 install_apt_packages() {
   info "Installing apt packages"
   ensure $SUDO apt-get update -y
@@ -361,17 +330,7 @@ install_nerd_font_gui() {
   fi
 }
 
-install_neovim_glibc() {
-  [[ "$INSTALL_NVIM" -eq 1 ]] || return 0
-  local tag; tag="$(gh_latest_tag neovim/neovim)"
-  [[ -n "$tag" ]] || { fmt_error "Failed to resolve neovim version"; return 1; }
-  fetch_and_install \
-    "https://github.com/neovim/neovim/releases/download/${tag}/nvim-linux-${ARCH_ARM64}.tar.gz" \
-    extract_neovim
-}
-
 install_helix_glibc() {
-  [[ "$INSTALL_HELIX" -eq 1 ]] || return 0
   check_cmd hx && return 0
   HELIX_TAG="$(gh_latest_tag helix-editor/helix)"
   [[ -n "$HELIX_TAG" ]] || { fmt_error "Failed to resolve helix version"; return 1; }
@@ -429,7 +388,6 @@ install_ubuntu() {
   info "Ubuntu/glibc target"
   install_apt_packages                          # critical: must succeed
   attempt "Nerd Font"  install_nerd_font_gui
-  attempt "neovim"     install_neovim_glibc
   attempt "helix"      install_helix_glibc
   attempt "lazygit"    install_lazygit_glibc
   attempt "zellij"     install_zellij_glibc
@@ -450,12 +408,10 @@ install_ubuntu() {
 # ==========================================================
 # Main
 # ==========================================================
-
 main() {
   detect_env
   preflight
   clone_or_update_repo
-  choose_editors
 
   if [[ "$IS_TERMUX" -eq 1 ]]; then
     install_termux
