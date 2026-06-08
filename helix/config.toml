@@ -1,4 +1,4 @@
-theme = "Dracula"
+theme = "dracula"
 
 [editor]
 bufferline = "always"
