@@ -1,16 +1,16 @@
-#!/bin/sh
+#!/usr/bin/env bash
 #
 # Dotfiles installer for lamboley/dotfiles.
 #
 # Run via curl:
-#   sh -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh)"
 # Or download then run (recommended for interactive prompts):
-#   curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh -o install.sh
-#   sh install.sh
+#   curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh -o install.sh
+#   bash install.sh
 #
 # Targets: Termux (native, bionic) and Ubuntu/glibc (desktop, servers, proot).
 #
-set -eu
+set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # Globals
@@ -20,16 +20,25 @@ REPO="https://github.com/lamboley/dotfiles.git"
 
 IS_TERMUX=0
 ARCH=""
+ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64   (neovim, lazygit, sshm)
+ARCH_AARCH64=""  # x86_64 -> x86_64 ; aarch64 -> aarch64 (zellij, helix)
 SUDO=""
 INSTALL_NVIM=0
 INSTALL_HELIX=0
+FAILED_STEPS=()  # optional steps that failed (reported at the end)
+
+# Clean up any leftover temp files on exit, even if the script dies mid-way.
+cleanup() {
+  rm -rf /tmp/helix-extract /tmp/FiraCode.zip 2>/dev/null || true
+}
+trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
 # Output helpers (colors only when stdout is a terminal)
 # ---------------------------------------------------------------------------
-if [ -t 1 ]; then
-  C_RED=$(printf '\033[1;31m'); C_GREEN=$(printf '\033[1;32m')
-  C_BLUE=$(printf '\033[1;34m'); C_RESET=$(printf '\033[0m')
+if [[ -t 1 ]]; then
+  C_RED=$'\033[1;31m'; C_GREEN=$'\033[1;32m'
+  C_BLUE=$'\033[1;34m'; C_RESET=$'\033[0m'
 else
   C_RED=""; C_GREEN=""; C_BLUE=""; C_RESET=""
 fi
@@ -39,7 +48,7 @@ success()   { printf '%s==>%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
 fmt_error() { printf '%sError:%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
 
 # ---------------------------------------------------------------------------
-# Small utilities (inspired by rustup's ensure/need_cmd)
+# Small utilities
 # ---------------------------------------------------------------------------
 check_cmd() { command -v "$1" >/dev/null 2>&1; }
 
@@ -58,53 +67,114 @@ ensure() {
   fi
 }
 
-has_gui() { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; }
-
-# Yes/no prompt that survives `curl | sh` by reading from /dev/tty.
-# Non-interactive (no tty): returns "yes" so unattended installs are complete.
-# Default answer is yes ([Y/n]).
-ask() {
-  # Not interactive at all -> accept default (yes)
-  if [ ! -t 1 ] || [ ! -e /dev/tty ]; then
-    return 0
+# Run an OPTIONAL step: if it fails, record it and keep going instead of
+# aborting. A summary of failures is printed at the end. Use this for
+# individual tools where one failure shouldn't sink the whole install.
+# $1 = human label ; $2... = command
+attempt() {
+  local label="$1"; shift
+  if ! "$@"; then
+    fmt_error "step failed: $label (continuing)"
+    FAILED_STEPS+=("$label")
   fi
+  return 0
+}
+
+# Print a summary of optional steps that failed, if any.
+report_failures() {
+  if [[ "${#FAILED_STEPS[@]}" -gt 0 ]]; then
+    fmt_error "Some optional steps failed: ${FAILED_STEPS[*]}"
+    info "The rest of the setup completed. You can re-run the script to retry."
+  fi
+}
+
+has_gui() { [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; }
+
+# Yes/no prompt that survives `curl | bash` by reading from /dev/tty.
+# Non-interactive (no tty): returns "yes" so unattended installs are complete.
+ask() {
+  [[ ! -t 1 || ! -e /dev/tty ]] && return 0
+  local ans
   printf '%s [Y/n] ' "$1"
-  read -r _ans < /dev/tty || return 0
-  case "$_ans" in
-    [nN] | [nN][oO]) return 1 ;;
-    *) return 0 ;;
-  esac
+  read -r ans < /dev/tty || return 0
+  [[ "$ans" =~ ^[Nn] ]] && return 1
+  return 0
 }
 
 # Resolve a repo's latest release tag WITHOUT the GitHub API (no rate limit).
-# /releases/latest redirects to /releases/tag/<tag>; read <tag> from the URL.
 gh_latest_tag() {
   curl -fsSLI -o /dev/null -w '%{url_effective}' \
     "https://github.com/$1/releases/latest" 2>/dev/null | sed -n 's#.*/tag/##p'
 }
 
-# Back up a real file (not a symlink) before we replace it with our symlink.
+# Back up a real file (not a symlink) before replacing it with our symlink.
 backup_if_real() {
-  if [ -e "$1" ] && [ ! -L "$1" ]; then
+  if [[ -e "$1" && ! -L "$1" ]]; then
     mv "$1" "$1.pre-dotfiles.bak"
     info "Backed up existing $1 to $1.pre-dotfiles.bak"
   fi
 }
 
 # ---------------------------------------------------------------------------
+# GitHub binary installer with a pluggable extraction step.
+#   $1 = download URL
+#   $2 = name of a function handling extraction; it receives the downloaded
+#        file path as $1 and is responsible for installing the binary.
+# The helper owns the common parts (download + cleanup); the callback owns
+# the layout differences (/usr/local/bin vs /opt, runtime dir, etc.).
+# ---------------------------------------------------------------------------
+fetch_and_install() {
+  local url="$1" extract_fn="$2"
+  local tmp; tmp="$(mktemp)"
+  if ! curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o "$tmp" "$url"; then
+    rm -f "$tmp"; return 1
+  fi
+  "$extract_fn" "$tmp" || { rm -f "$tmp"; return 1; }
+  rm -f "$tmp"
+}
+
+# Extraction callbacks ------------------------------------------------------
+# Simple case: a .tar.gz containing a single binary -> /usr/local/bin.
+# Uses $EXTRACT_BIN (set by caller) as the binary name inside the tarball.
+# Callbacks return non-zero on failure so attempt() can record it.
+extract_single_bin() {
+  $SUDO tar -C /usr/local/bin -xzf "$1" "$EXTRACT_BIN"
+}
+
+extract_neovim() {
+  # nvim ships a whole tree; install under /opt and symlink the binary.
+  $SUDO rm -rf "/opt/nvim-linux-${ARCH_ARM64}"
+  $SUDO tar -C /opt -xzf "$1" || return 1
+  $SUDO ln -sf "/opt/nvim-linux-${ARCH_ARM64}/bin/nvim" /usr/local/bin/nvim
+}
+
+extract_helix() {
+  # helix ships hx + a runtime dir that must live where hx looks for it.
+  local dir="/tmp/helix-extract"
+  rm -rf "$dir"; mkdir -p "$dir"
+  tar -C "$dir" -xJf "$1" || return 1
+  local hxdir="$dir/helix-${HELIX_TAG}-${ARCH_AARCH64}-linux"
+  $SUDO install -m 755 "$hxdir/hx" /usr/local/bin/hx || return 1
+  mkdir -p "$HOME/.config/helix"
+  rm -rf "$HOME/.config/helix/runtime"
+  cp -r "$hxdir/runtime" "$HOME/.config/helix/runtime"
+  rm -rf "$dir"
+}
+
+# ---------------------------------------------------------------------------
 # Detection / preflight
 # ---------------------------------------------------------------------------
 detect_env() {
-  [ -n "${TERMUX_VERSION:-}" ] && IS_TERMUX=1
+  [[ -n "${TERMUX_VERSION:-}" ]] && IS_TERMUX=1
 
   ARCH="$(uname -m)"
   case "$ARCH" in
-    x86_64 | aarch64) ;;
+    x86_64)  ARCH_ARM64="x86_64"; ARCH_AARCH64="x86_64" ;;
+    aarch64) ARCH_ARM64="arm64";  ARCH_AARCH64="aarch64" ;;
     *) fmt_error "Unsupported architecture: $ARCH (expected x86_64 or aarch64)"; exit 1 ;;
   esac
 
-  # sudo only when not already root and not on Termux (no root there)
-  if [ "$IS_TERMUX" -eq 1 ] || [ "$(id -u)" -eq 0 ]; then
+  if [[ "$IS_TERMUX" -eq 1 || "$(id -u)" -eq 0 ]]; then
     SUDO=""
   else
     need_cmd sudo
@@ -123,7 +193,7 @@ preflight() {
 # Repo
 # ---------------------------------------------------------------------------
 clone_or_update_repo() {
-  if [ -d "$DOTFILES" ]; then
+  if [[ -d "$DOTFILES" ]]; then
     info "Updating dotfiles repo"
     ensure git -C "$DOTFILES" pull --rebase origin master
   else
@@ -132,31 +202,29 @@ clone_or_update_repo() {
   fi
 }
 
-# ---------------------------------------------------------------------------
-# Editor choice
-# ---------------------------------------------------------------------------
 choose_editors() {
   if ask "Installer Neovim ?"; then INSTALL_NVIM=1; fi
   if ask "Installer Helix ?"; then INSTALL_HELIX=1; fi
 }
 
 # ---------------------------------------------------------------------------
-# Shared steps (both platforms)
+# Shared steps
 # ---------------------------------------------------------------------------
 clone_zsh_plugins() {
   mkdir -p "$HOME/.zsh/plugins"
-  [ -d "$HOME/.zsh/plugins/zsh-autosuggestions" ] || \
-    ensure git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$HOME/.zsh/plugins/zsh-autosuggestions"
-  [ -d "$HOME/.zsh/plugins/zsh-syntax-highlighting" ] || \
-    ensure git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$HOME/.zsh/plugins/zsh-syntax-highlighting"
+  local p
+  for p in zsh-autosuggestions zsh-syntax-highlighting; do
+    [[ -d "$HOME/.zsh/plugins/$p" ]] || \
+      ensure git clone --depth=1 "https://github.com/zsh-users/$p" "$HOME/.zsh/plugins/$p"
+  done
 }
 
 deploy_editor_configs() {
-  if [ "$INSTALL_NVIM" -eq 1 ]; then
+  if [[ "$INSTALL_NVIM" -eq 1 ]]; then
     mkdir -p "$HOME/.config/nvim"
     cp -r "$DOTFILES/nvim/." "$HOME/.config/nvim/"
   fi
-  if [ "$INSTALL_HELIX" -eq 1 ]; then
+  if [[ "$INSTALL_HELIX" -eq 1 ]]; then
     mkdir -p "$HOME/.config/helix"
     cp -r "$DOTFILES/helix/." "$HOME/.config/helix/"
   fi
@@ -164,55 +232,47 @@ deploy_editor_configs() {
 
 deploy_common_symlinks() {
   backup_if_real "$HOME/.zshrc"
-  ln -s -f "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"
-
+  ln -sf "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"
   mkdir -p "$HOME/.config/zellij"
-  ln -s -f "$DOTFILES/zellij/config.kdl" "$HOME/.config/zellij/config.kdl"
+  ln -sf "$DOTFILES/zellij/config.kdl" "$HOME/.config/zellij/config.kdl"
 }
 
 setup_ssh() {
   mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 700 "$HOME/.ssh" "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 600 "$DOTFILES/ssh/config" "$DOTFILES/ssh/hardening.conf"
-  ln -s -f "$DOTFILES/ssh/hardening.conf" "$HOME/.ssh/hardening.conf"
+  ln -sf "$DOTFILES/ssh/hardening.conf" "$HOME/.ssh/hardening.conf"
 
-  # Seed an example host only if config.d is empty
-  if [ -z "$(ls -A "$HOME/.ssh/config.d" 2>/dev/null)" ]; then
+  if [[ -z "$(ls -A "$HOME/.ssh/config.d" 2>/dev/null)" ]]; then
     cp "$DOTFILES/ssh/config.d/00-example.conf" "$HOME/.ssh/config.d/00-example.conf"
   fi
   chmod 600 "$HOME"/.ssh/config.d/*.conf 2>/dev/null || true
 
-  # Entry config: back up a foreign config, then symlink ours
   backup_if_real "$HOME/.ssh/config"
-  ln -s -f "$DOTFILES/ssh/config" "$HOME/.ssh/config"
+  ln -sf "$DOTFILES/ssh/config" "$HOME/.ssh/config"
 
-  # Tighten permissions on existing private keys
   find "$HOME/.ssh" -maxdepth 1 -type f -name 'id_*' ! -name '*.pub' \
     -exec chmod 600 {} \; 2>/dev/null || true
 }
 
 set_default_shell() {
-  if [ "$(basename "${SHELL:-}")" != "zsh" ] && check_cmd zsh; then
+  if [[ "$(basename "${SHELL:-}")" != "zsh" ]] && check_cmd zsh; then
     chsh -s "$(command -v zsh)" || \
       info "Could not change shell automatically; run 'chsh -s zsh' manually."
   fi
 }
 
 # Language servers for Helix (Go + Bash). Only runs if Helix was installed.
-# gopls comes from Go (already present). bash-language-server needs npm/Node,
-# so we ask before pulling in that dependency.
-# $1 is the package manager command to install nodejs ("pkg" or "apt-get").
+# $1 = package manager for nodejs ("pkg" or "apt-get").
 install_helix_lsp() {
-  [ "$INSTALL_HELIX" -eq 1 ] || return 0
+  [[ "$INSTALL_HELIX" -eq 1 ]] || return 0
   info "Installing Helix language servers"
 
-  # Go LSP — uses the Go toolchain we already installed.
   if check_cmd go && ! check_cmd gopls; then
     go install golang.org/x/tools/gopls@latest \
       || fmt_error "Failed to install gopls (continuing)"
   fi
 
-  # Bash LSP — needs npm. Ask before installing Node, it's a heavy dependency.
   if ! check_cmd bash-language-server; then
     if check_cmd npm; then
       ensure npm install -g bash-language-server
@@ -239,25 +299,22 @@ install_termux() {
     git zsh zellij lazygit starship \
     fzf ripgrep fd eza openssh curl unzip golang
 
-  if [ "$INSTALL_NVIM" -eq 1 ]; then ensure pkg install -y neovim; fi
-  if [ "$INSTALL_HELIX" -eq 1 ]; then ensure pkg install -y helix; fi
+  if [[ "$INSTALL_NVIM" -eq 1 ]]; then ensure pkg install -y neovim; fi
+  if [[ "$INSTALL_HELIX" -eq 1 ]]; then ensure pkg install -y helix; fi
 
   clone_zsh_plugins
 
-  # sshm: not packaged, build from source (pure Go)
   if ! check_cmd sshm; then
-    go install github.com/Gu1llaum-3/sshm@latest \
-      || fmt_error "Failed to build sshm (continuing without it)"
+    attempt "sshm" go install github.com/Gu1llaum-3/sshm@latest
   fi
 
   # Nerd Font: on Termux the font is an APP setting (~/.termux/font.ttf)
-  if [ ! -f "$HOME/.termux/font.ttf" ]; then
+  if [[ ! -f "$HOME/.termux/font.ttf" ]]; then
     mkdir -p "$HOME/.termux"
-    if curl -fL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
-      "https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFont-Regular.ttf"; then
-      check_cmd termux-reload-settings && termux-reload-settings
-    else
-      fmt_error "Failed to install Termux Nerd Font (icons may be missing)"
+    attempt "Nerd Font" curl -fL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
+      "https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFont-Regular.ttf"
+    if [[ -f "$HOME/.termux/font.ttf" ]] && check_cmd termux-reload-settings; then
+      termux-reload-settings
     fi
   fi
 
@@ -266,6 +323,7 @@ install_termux() {
   setup_ssh
   set_default_shell
   install_helix_lsp pkg
+  report_failures
 
   success "Termux setup complete. Restart Termux to land in zsh."
 }
@@ -279,14 +337,12 @@ install_apt_packages() {
   $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
   ensure $SUDO apt-get install -y \
     curl git zsh unzip ripgrep fd-find fzf eza keychain
-
-  # Ubuntu names the binary fdfind
   mkdir -p "$HOME/.local/bin"
   ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
 }
 
 install_nerd_font_gui() {
-  if has_gui && [ ! -f "$HOME/.local/share/fonts/FiraCodeNerdFont-Regular.ttf" ]; then
+  if has_gui && [[ ! -f "$HOME/.local/share/fonts/FiraCodeNerdFont-Regular.ttf" ]]; then
     mkdir -p "$HOME/.local/share/fonts"
     curl -fsSL -o /tmp/FiraCode.zip \
       https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
@@ -297,82 +353,47 @@ install_nerd_font_gui() {
 }
 
 install_neovim_glibc() {
-  [ "$INSTALL_NVIM" -eq 1 ] || return 0
-  case "$ARCH" in
-    x86_64)  _na="x86_64" ;;
-    aarch64) _na="arm64" ;;
-  esac
-  _tag=$(gh_latest_tag neovim/neovim)
-  [ -n "$_tag" ] || { fmt_error "Failed to resolve neovim version"; exit 1; }
-  ensure curl -fL --retry 3 --retry-delay 2 --retry-all-errors -O \
-    "https://github.com/neovim/neovim/releases/download/${_tag}/nvim-linux-${_na}.tar.gz"
-  $SUDO rm -rf "/opt/nvim-linux-${_na}"
-  ensure $SUDO tar -C /opt -xzf "nvim-linux-${_na}.tar.gz"
-  rm -f "nvim-linux-${_na}.tar.gz"
-  $SUDO ln -sf "/opt/nvim-linux-${_na}/bin/nvim" /usr/local/bin/nvim
+  [[ "$INSTALL_NVIM" -eq 1 ]] || return 0
+  local tag; tag="$(gh_latest_tag neovim/neovim)"
+  [[ -n "$tag" ]] || { fmt_error "Failed to resolve neovim version"; return 1; }
+  fetch_and_install \
+    "https://github.com/neovim/neovim/releases/download/${tag}/nvim-linux-${ARCH_ARM64}.tar.gz" \
+    extract_neovim
 }
 
 install_helix_glibc() {
-  [ "$INSTALL_HELIX" -eq 1 ] || return 0
+  [[ "$INSTALL_HELIX" -eq 1 ]] || return 0
   check_cmd hx && return 0
-  case "$ARCH" in
-    x86_64)  _ha="x86_64" ;;
-    aarch64) _ha="aarch64" ;;
-  esac
-  _tag=$(gh_latest_tag helix-editor/helix)
-  [ -n "$_tag" ] || { fmt_error "Failed to resolve helix version"; exit 1; }
-  ensure curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/helix.tar.xz \
-    "https://github.com/helix-editor/helix/releases/download/${_tag}/helix-${_tag}-${_ha}-linux.tar.xz"
-  rm -rf /tmp/helix-extract && mkdir -p /tmp/helix-extract
-  ensure tar -C /tmp/helix-extract -xJf /tmp/helix.tar.xz
-  _hxdir="/tmp/helix-extract/helix-${_tag}-${_ha}-linux"
-  ensure $SUDO install -m 755 "$_hxdir/hx" /usr/local/bin/hx
-  # Helix needs its runtime dir (themes, grammars) where hx looks for it
-  mkdir -p "$HOME/.config/helix"
-  rm -rf "$HOME/.config/helix/runtime"
-  cp -r "$_hxdir/runtime" "$HOME/.config/helix/runtime"
-  rm -rf /tmp/helix.tar.xz /tmp/helix-extract
+  HELIX_TAG="$(gh_latest_tag helix-editor/helix)"
+  [[ -n "$HELIX_TAG" ]] || { fmt_error "Failed to resolve helix version"; return 1; }
+  fetch_and_install \
+    "https://github.com/helix-editor/helix/releases/download/${HELIX_TAG}/helix-${HELIX_TAG}-${ARCH_AARCH64}-linux.tar.xz" \
+    extract_helix
 }
 
 install_lazygit_glibc() {
   check_cmd lazygit && return 0
-  case "$ARCH" in
-    x86_64)  _la="x86_64" ;;
-    aarch64) _la="arm64" ;;
-  esac
-  _tag=$(gh_latest_tag jesseduffield/lazygit)
-  _ver=${_tag#v}
-  [ -n "$_ver" ] || { fmt_error "Failed to resolve lazygit version"; exit 1; }
-  ensure curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/lazygit.tar.gz \
-    "https://github.com/jesseduffield/lazygit/releases/download/${_tag}/lazygit_${_ver}_linux_${_la}.tar.gz"
-  ensure $SUDO tar -C /usr/local/bin -xzf /tmp/lazygit.tar.gz lazygit
-  rm -f /tmp/lazygit.tar.gz
+  local tag ver; tag="$(gh_latest_tag jesseduffield/lazygit)"; ver="${tag#v}"
+  [[ -n "$ver" ]] || { fmt_error "Failed to resolve lazygit version"; return 1; }
+  EXTRACT_BIN=lazygit fetch_and_install \
+    "https://github.com/jesseduffield/lazygit/releases/download/${tag}/lazygit_${ver}_linux_${ARCH_ARM64}.tar.gz" \
+    extract_single_bin
 }
 
 install_zellij_glibc() {
   check_cmd zellij && return 0
-  case "$ARCH" in
-    x86_64)  _za="x86_64" ;;
-    aarch64) _za="aarch64" ;;
-  esac
-  ensure curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/zellij.tar.gz \
-    "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${_za}-unknown-linux-musl.tar.gz"
-  ensure $SUDO tar -C /usr/local/bin -xzf /tmp/zellij.tar.gz zellij
-  rm -f /tmp/zellij.tar.gz
+  EXTRACT_BIN=zellij fetch_and_install \
+    "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${ARCH_AARCH64}-unknown-linux-musl.tar.gz" \
+    extract_single_bin
 }
 
 install_sshm_glibc() {
   check_cmd sshm && return 0
-  case "$ARCH" in
-    x86_64)  _sa="x86_64" ;;
-    aarch64) _sa="arm64" ;;
-  esac
-  _tag=$(gh_latest_tag Gu1llaum-3/sshm)
-  [ -n "$_tag" ] || { fmt_error "Failed to resolve sshm version"; exit 1; }
-  ensure curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/sshm.tar.gz \
-    "https://github.com/Gu1llaum-3/sshm/releases/download/${_tag}/sshm_Linux_${_sa}.tar.gz"
-  ensure $SUDO tar -C /usr/local/bin -xzf /tmp/sshm.tar.gz sshm
-  rm -f /tmp/sshm.tar.gz
+  local tag; tag="$(gh_latest_tag Gu1llaum-3/sshm)"
+  [[ -n "$tag" ]] || { fmt_error "Failed to resolve sshm version"; return 1; }
+  EXTRACT_BIN=sshm fetch_and_install \
+    "https://github.com/Gu1llaum-3/sshm/releases/download/${tag}/sshm_Linux_${ARCH_ARM64}.tar.gz" \
+    extract_single_bin
 }
 
 install_starship_glibc() {
@@ -391,21 +412,21 @@ install_alacritty_gui() {
 deploy_alacritty_config() {
   if has_gui; then
     mkdir -p "$HOME/.config/alacritty"
-    ln -s -f "$DOTFILES/alacritty/alacritty.toml" "$HOME/.config/alacritty/alacritty.toml"
+    ln -sf "$DOTFILES/alacritty/alacritty.toml" "$HOME/.config/alacritty/alacritty.toml"
   fi
 }
 
 install_ubuntu() {
   info "Ubuntu/glibc target"
-  install_apt_packages
-  install_nerd_font_gui
-  install_neovim_glibc
-  install_helix_glibc
-  install_lazygit_glibc
-  install_zellij_glibc
-  install_sshm_glibc
-  install_alacritty_gui
-  install_starship_glibc
+  install_apt_packages                          # critical: must succeed
+  attempt "Nerd Font"  install_nerd_font_gui
+  attempt "neovim"     install_neovim_glibc
+  attempt "helix"      install_helix_glibc
+  attempt "lazygit"    install_lazygit_glibc
+  attempt "zellij"     install_zellij_glibc
+  attempt "sshm"       install_sshm_glibc
+  attempt "alacritty"  install_alacritty_gui
+  attempt "starship"   install_starship_glibc
   clone_zsh_plugins
   deploy_editor_configs
   deploy_common_symlinks
@@ -413,6 +434,7 @@ install_ubuntu() {
   setup_ssh
   set_default_shell
   install_helix_lsp apt-get
+  report_failures
   success "Ubuntu setup complete."
 }
 
@@ -425,7 +447,7 @@ main() {
   clone_or_update_repo
   choose_editors
 
-  if [ "$IS_TERMUX" -eq 1 ]; then
+  if [[ "$IS_TERMUX" -eq 1 ]]; then
     install_termux
   else
     install_ubuntu
