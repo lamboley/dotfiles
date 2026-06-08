@@ -3,9 +3,9 @@
 # Dotfiles installer for lamboley/dotfiles.
 #
 # Run via curl:
-#   sh -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh)"
+#   sh -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh)"
 # Or download then run (recommended for interactive prompts):
-#   curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh -o install.sh
+#   curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh -o install.sh
 #   sh install.sh
 #
 # Targets: Termux (native, bionic) and Ubuntu/glibc (desktop, servers, proot).
@@ -198,6 +198,36 @@ set_default_shell() {
   fi
 }
 
+# Language servers for Helix (Go + Bash). Only runs if Helix was installed.
+# gopls comes from Go (already present). bash-language-server needs npm/Node,
+# so we ask before pulling in that dependency.
+# $1 is the package manager command to install nodejs ("pkg" or "apt-get").
+install_helix_lsp() {
+  [ "$INSTALL_HELIX" -eq 1 ] || return 0
+  info "Installing Helix language servers"
+
+  # Go LSP — uses the Go toolchain we already installed.
+  if check_cmd go && ! check_cmd gopls; then
+    go install golang.org/x/tools/gopls@latest \
+      || fmt_error "Failed to install gopls (continuing)"
+  fi
+
+  # Bash LSP — needs npm. Ask before installing Node, it's a heavy dependency.
+  if ! check_cmd bash-language-server; then
+    if check_cmd npm; then
+      ensure npm install -g bash-language-server
+    elif ask "bash-language-server nécessite Node.js. L'installer ?"; then
+      case "$1" in
+        pkg)     ensure pkg install -y nodejs ;;
+        apt-get) ensure $SUDO apt-get install -y nodejs npm ;;
+      esac
+      ensure npm install -g bash-language-server
+    else
+      info "Skipping bash-language-server (Node.js declined)."
+    fi
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # TERMUX branch
 # ---------------------------------------------------------------------------
@@ -235,6 +265,7 @@ install_termux() {
   deploy_common_symlinks
   setup_ssh
   set_default_shell
+  install_helix_lsp pkg
 
   success "Termux setup complete. Restart Termux to land in zsh."
 }
@@ -381,6 +412,7 @@ install_ubuntu() {
   deploy_alacritty_config
   setup_ssh
   set_default_shell
+  install_helix_lsp apt-get
   success "Ubuntu setup complete."
 }
 
