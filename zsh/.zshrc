@@ -3,6 +3,9 @@
 # --- PATH ---
 export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
 
+# --- Helix runtime (Termux : le paquet le met dans opt/, hx ne le trouve pas seul) ---
+[ -d "$PREFIX/opt/helix/runtime" ] && export HELIX_RUNTIME="$PREFIX/opt/helix/runtime"
+
 # --- Historique ---
 HISTFILE="$HOME/.zsh_history"
 HISTSIZE=10000
