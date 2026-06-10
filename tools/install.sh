@@ -45,11 +45,17 @@ else
   C_RED=""; C_GREEN=""; C_BLUE=""; C_RESET=""
 fi
 
-info()      { printf '%s+++%s %s\n' "$C_BLUE" "$C_RESET" "$*"; }
-success()   { printf '%s+++%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
-# Indented sub-detail, printed under the current step/question.
-detail()    { printf '    %s---%s %s\n' "$C_BLUE" "$C_RESET" "$*"; }
-fmt_error() { printf '%s!!!%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
+# Logging in the Kubernetes hack/lib/logging.sh format:
+#   +++ [MMDD HH:MM:SS] status line
+#       indented continuation (4 spaces, no prefix)
+#   !!! [MMDD HH:MM:SS] error line (stderr)
+ts() { date +"[%m%d %H:%M:%S]"; }
+
+info()      { printf '%s+++%s %s %s\n' "$C_BLUE" "$C_RESET" "$(ts)" "$*"; }
+success()   { printf '%s+++%s %s %s\n' "$C_GREEN" "$C_RESET" "$(ts)" "$*"; }
+# Continuation line under the current step (plain indentation, k8s-style).
+detail()    { printf '    %s\n' "$*"; }
+fmt_error() { printf '%s!!!%s %s %s\n' "$C_RED" "$C_RESET" "$(ts)" "$*" >&2; }
 
 # ==========================================================
 # Small utilities
@@ -101,7 +107,7 @@ ask() {
   [[ "$ASSUME_YES" -eq 1 ]] && return 0
   [[ ! -t 1 || ! -e /dev/tty ]] && return 0
   local ans
-  printf '%s+++%s %s [Y/n] ' "$C_BLUE" "$C_RESET" "$1"
+  printf '%s+++%s %s %s [Y/n] ' "$C_BLUE" "$C_RESET" "$(ts)" "$1"
   read -r ans < /dev/tty || return 0
   [[ "$ans" =~ ^[Nn] ]] && return 1
   return 0
