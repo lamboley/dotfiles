@@ -1,7 +1,7 @@
 # ~/.zshrc — sans framework, prompt via starship
 
 # --- PATH ---
-export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$HOME/go/bin:$PATH"
 
 # --- Helix runtime (Termux : le paquet le met dans opt/, hx ne le trouve pas seul) ---
 [ -d "$PREFIX/opt/helix/runtime" ] && export HELIX_RUNTIME="$PREFIX/opt/helix/runtime"
@@ -34,6 +34,10 @@ if ! grep -qi proot /proc/version 2>/dev/null && command -v keychain >/dev/null 
   eval "$(keychain --eval --quiet --agents ssh)"
 fi
 
+# --- ssh-agent (termux-services) ---
+[ -S "$PREFIX/var/run/ssh-agent.socket" ] && \
+  export SSH_AUTH_SOCK="$PREFIX/var/run/ssh-agent.socket"
+
 # --- fzf : keybindings + completion (Ctrl+R, Ctrl+T, Alt+C) ---
 command -v fzf >/dev/null 2>&1 && source <(fzf --zsh) 2>/dev/null
 
@@ -57,4 +61,4 @@ for d in \
 done
 
 # --- Prompt (starship, tout en bas) ---
-eval "$(starship init zsh)"
+command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
