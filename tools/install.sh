@@ -24,6 +24,7 @@ ARCH=""
 ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64   (lazygit, sshm)
 ARCH_AARCH64=""  # x86_64 -> x86_64 ; aarch64 -> aarch64 (zellij, helix)
 SUDO=""
+TARGET=""        # forced branch: ubuntu | termux | rhel (empty = auto-detect)
 ASSUME_YES=0     # -y / --yes: skip all prompts (install everything)
 FAILED_STEPS=()  # optional steps that failed (reported at the end)
 
@@ -285,16 +286,30 @@ install_helix_lsp() {
 install_termux() {
   info "Termux detected — installing via pkg"
 
-  if ask "Installer/mettre à jour les paquets de base (zsh, zellij, helix, lazygit, ...) ?"; then
+  if ask "Mettre à jour le système (pkg update/upgrade) ?"; then
     ensure pkg update -y
     ensure pkg upgrade -y
-    ensure pkg install -y \
-      git zsh zellij lazygit starship \
-      fzf ripgrep fd eza zoxide openssh curl unzip golang
-    ensure pkg install -y helix
   fi
 
-  if ! check_cmd sshm && ask "Installer sshm ?"; then
+  # Script prerequisites — installed without asking.
+  ensure pkg install -y git curl unzip openssh
+
+  # zsh and the CLI tools its config relies on, as one brick.
+  if ask "Installer zsh et ses outils (fzf, ripgrep, fd, eza, zoxide) ?"; then
+    attempt "zsh + outils" pkg install -y zsh fzf ripgrep fd eza zoxide
+  fi
+
+  # One question per remaining tool; skipped if already installed.
+  local entry pkgname cmd
+  for entry in zellij:zellij lazygit:lazygit starship:starship \
+               golang:go helix:hx; do
+    pkgname="${entry%%:*}"; cmd="${entry##*:}"
+    if ! check_cmd "$cmd" && ask "Installer $pkgname ?"; then
+      attempt "$pkgname" pkg install -y "$pkgname"
+    fi
+  done
+
+  if check_cmd go && ! check_cmd sshm && ask "Installer sshm ?"; then
     attempt "sshm" go install github.com/Gu1llaum-3/sshm@latest
   fi
 
@@ -331,13 +346,30 @@ install_termux() {
 # UBUNTU / glibc branch
 # ==========================================================
 install_apt_packages() {
-  info "Installing apt packages"
-  ensure $SUDO apt-get update -y
-  $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
-  ensure $SUDO apt-get install -y \
-    curl git zsh unzip ripgrep fd-find fzf eza zoxide keychain
-  mkdir -p "$HOME/.local/bin"
-  ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+  info "apt packages"
+
+  if ask "Mettre à jour le système (apt update/upgrade) ?"; then
+    ensure $SUDO apt-get update -y
+    $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
+  else
+    # Package lists are still needed to install anything below.
+    ensure $SUDO apt-get update -y
+  fi
+
+  # Script prerequisites — installed without asking.
+  ensure $SUDO apt-get install -y curl git unzip
+
+  # zsh and the CLI tools its config relies on, as one brick.
+  if ask "Installer zsh et ses outils (fzf, ripgrep, fd, eza, zoxide, keychain) ?"; then
+    attempt "zsh + outils" $SUDO apt-get install -y \
+      zsh fzf ripgrep fd-find eza zoxide keychain
+  fi
+
+  # Ubuntu names fd's binary "fdfind"; expose it as "fd".
+  if check_cmd fdfind; then
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+  fi
 }
 
 install_nerd_font_gui() {
@@ -408,30 +440,30 @@ deploy_alacritty_config() {
 install_ubuntu() {
   info "Ubuntu/glibc target"
 
-  if ask "Installer les paquets apt de base (zsh, fzf, ripgrep, eza, ...) ?"; then
-    install_apt_packages
-  fi
+  install_apt_packages
 
-  if ask "Installer la Nerd Font (GUI uniquement) ?"; then
-    attempt "Nerd Font" install_nerd_font_gui
-  fi
-  if ask "Installer helix ?"; then
+  if ! check_cmd hx && ask "Installer helix ?"; then
     attempt "helix" install_helix_glibc
   fi
-  if ask "Installer lazygit ?"; then
+  if ! check_cmd lazygit && ask "Installer lazygit ?"; then
     attempt "lazygit" install_lazygit_glibc
   fi
-  if ask "Installer zellij ?"; then
+  if ! check_cmd zellij && ask "Installer zellij ?"; then
     attempt "zellij" install_zellij_glibc
   fi
-  if ask "Installer sshm ?"; then
+  if ! check_cmd sshm && ask "Installer sshm ?"; then
     attempt "sshm" install_sshm_glibc
   fi
-  if ask "Installer alacritty (GUI uniquement) ?"; then
-    attempt "alacritty" install_alacritty_gui
-  fi
-  if ask "Installer starship ?"; then
+  if ! check_cmd starship && ask "Installer starship ?"; then
     attempt "starship" install_starship_glibc
+  fi
+  if has_gui; then
+    if ! check_cmd alacritty && ask "Installer alacritty ?"; then
+      attempt "alacritty" install_alacritty_gui
+    fi
+    if ask "Installer la Nerd Font ?"; then
+      attempt "Nerd Font" install_nerd_font_gui
+    fi
   fi
 
   if ask "Déployer zsh (plugins, .zshrc) et les configs (helix, zellij, alacritty) ?"; then
@@ -506,16 +538,39 @@ install_rhel_bastion() {
 # ==========================================================
 # Main
 # ==========================================================
+usage() {
+  cat <<'EOF'
+Usage: install.sh [target] [-y]
+
+  target     force the install branch instead of auto-detecting:
+               ubuntu   apt-based desktop/server setup
+               termux   Termux/Android setup
+               rhel     Rocky/RHEL bastion (sshd hardening)
+  -y, --yes  answer yes to every prompt (unattended install)
+EOF
+}
+
 main() {
   local arg
   for arg in "$@"; do
     case "$arg" in
-      -y|--yes) ASSUME_YES=1 ;;
-      *) fmt_error "unknown option: $arg (usage: install.sh [-y])"; exit 1 ;;
+      -y|--yes)          ASSUME_YES=1 ;;
+      ubuntu|termux|rhel) TARGET="$arg" ;;
+      -h|--help)         usage; exit 0 ;;
+      *) fmt_error "unknown option: $arg"; usage; exit 1 ;;
     esac
   done
 
   detect_env
+
+  # Forced target overrides detection (proot, containers, testing...).
+  case "$TARGET" in
+    termux) IS_TERMUX=1; IS_RHEL=0 ;;
+    rhel)   IS_TERMUX=0; IS_RHEL=1 ;;
+    ubuntu) IS_TERMUX=0; IS_RHEL=0 ;;
+  esac
+  [[ -n "$TARGET" ]] && info "Forced target: $TARGET"
+
   [[ "$IS_RHEL" -eq 1 ]] && bootstrap_rhel
   preflight
   clone_or_update_repo
