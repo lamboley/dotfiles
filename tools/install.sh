@@ -29,36 +29,33 @@ ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64   (Go toolchain)
 SUDO=""
 TARGET=""        # forced branch: ubuntu | termux | rhel (empty = auto-detect)
 ASSUME_YES=0     # -y / --yes: skip all prompts (install everything)
+SUDO_REVOKE=0    # revoke the sudo timestamp at exit if we activated it
 FAILED_STEPS=()  # optional steps that failed (reported at the end)
 TMP_FILES=()     # mktemp files to remove on exit (Ctrl-C safe)
 
 # Clean up any leftover temp files on exit, even if the script dies mid-way.
 cleanup() {
-  rm -rf /tmp/helix-extract /tmp/FiraCode.zip "${TMP_FILES[@]}" 2>/dev/null || true
+  rm -rf /tmp/helix-extract /tmp/shellcheck-extract /tmp/FiraCode.zip \
+    "${TMP_FILES[@]}" 2>/dev/null || true
+  # Drop the sudo timestamp if this run is what activated it (brew-style).
+  if [[ "${SUDO_REVOKE}" -eq 1 ]]; then
+    sudo -k 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
 # ==========================================================
-# Output helpers (colors only when stdout is a terminal)
-# ==========================================================
-if [[ -t 1 ]]; then
-  C_RED=$'\033[1;31m'; C_GREEN=$'\033[1;32m'
-  C_BLUE=$'\033[1;34m'; C_RESET=$'\033[0m'
-else
-  C_RED=""; C_GREEN=""; C_BLUE=""; C_RESET=""
-fi
-
-# Logging in the Kubernetes hack/lib/logging.sh format:
+# Logging in the Kubernetes hack/lib/logging.sh format (no colors):
 #   +++ [MMDD HH:MM:SS] status line
 #       indented continuation (4 spaces, no prefix)
 #   !!! [MMDD HH:MM:SS] error line (stderr)
+# ==========================================================
 ts() { date +"[%m%d %H:%M:%S]"; }
 
-info()      { printf '%s+++%s %s %s\n' "$C_BLUE" "$C_RESET" "$(ts)" "$*"; }
-success()   { printf '%s+++%s %s %s\n' "$C_GREEN" "$C_RESET" "$(ts)" "$*"; }
+info()      { printf '+++ %s %s\n' "$(ts)" "$*"; }
 # Continuation line under the current step (plain indentation, k8s-style).
 detail()    { printf '    %s\n' "$*"; }
-fmt_error() { printf '%s!!!%s %s %s\n' "$C_RED" "$C_RESET" "$(ts)" "$*" >&2; }
+fmt_error() { printf '!!! %s %s\n' "$(ts)" "$*" >&2; }
 
 # ==========================================================
 # Small utilities
@@ -93,6 +90,21 @@ attempt() {
   return 0
 }
 
+# Retry a command with exponential backoff (Homebrew-style).
+# $1 = max attempts ; $2... = command
+retry() {
+  local n="$1" pause=2
+  shift
+  while true; do
+    "$@" && return 0
+    n=$((n - 1))
+    [[ "$n" -le 0 ]] && return 1
+    detail "Retrying in ${pause}s: $*"
+    sleep "$pause"
+    pause=$((pause * 2))
+  done
+}
+
 # Print a summary of optional steps that failed, if any.
 report_failures() {
   if [[ "${#FAILED_STEPS[@]}" -gt 0 ]]; then
@@ -110,27 +122,102 @@ ask() {
   [[ "$ASSUME_YES" -eq 1 ]] && return 0
   [[ ! -t 1 || ! -e /dev/tty ]] && return 0
   local ans
-  printf '%s+++%s %s %s [Y/n] ' "$C_BLUE" "$C_RESET" "$(ts)" "$1"
+  printf '+++ %s %s [Y/n] ' "$(ts)" "$1"
   read -r ans < /dev/tty || return 0
   [[ "$ans" =~ ^[Nn] ]] && return 1
   return 0
 }
 
-# One "brick" = a tool and its config, handled together:
-#   - tool already present  -> (re)deploy its config, no question asked
-#   - tool absent           -> ask; on yes, install then deploy its config
-#   - user declines         -> skip both
-# $1 = command to check ; $2 = prompt ; $3 = deploy function ("-" for none)
-# $4... = install command
-brick() {
-  local cmd="$1" prompt="$2" deploy_fn="$3"; shift 3
-  if ! check_cmd "$cmd"; then
-    ask "$prompt" || return 0
-    attempt "$cmd" "$@"
+# True if at least one of the given commands is missing.
+any_missing() {
+  local c
+  for c in "$@"; do check_cmd "$c" || return 0; done
+  return 1
+}
+
+# ==========================================================
+# Plan/execute engine (Homebrew-style: announce, confirm, act).
+# A brick entry is "commands|prompt|deploy|install command":
+#   - commands: comma-separated; if ALL are present, only the config syncs
+#   - prompt:   question asked when something is missing
+#   - deploy:   config function tied to the first command ("-" = none)
+#   - install:  command run if the user accepts
+# Questions are gathered first, the resulting plan is shown once,
+# then a single confirmation triggers execution.
+# ==========================================================
+PLAN_INSTALL_LABELS=()
+PLAN_INSTALL_CMDS=()
+PLAN_DEPLOYS=()   # "primary_command:deploy_function"
+PLAN_SKIPPED=()
+
+# True if the given tool was accepted for installation in this plan.
+planned() {
+  local x
+  for x in "${PLAN_INSTALL_LABELS[@]}"; do
+    [[ "$x" == "$1" ]] && return 0
+  done
+  return 1
+}
+
+plan_bricks() {
+  local entry cmds prompt deploy inst primary
+  local -a clist
+  for entry in "$@"; do
+    IFS='|' read -r cmds prompt deploy inst <<<"$entry"
+    IFS=',' read -ra clist <<<"$cmds"
+    primary="${clist[0]}"
+    if ! any_missing "${clist[@]}"; then
+      # Everything present: only the config sync goes into the plan.
+      if [[ "$deploy" != "-" ]]; then
+        PLAN_DEPLOYS+=("${primary}:${deploy}")
+      fi
+      continue
+    fi
+    if ask "$prompt"; then
+      PLAN_INSTALL_LABELS+=("$primary")
+      PLAN_INSTALL_CMDS+=("$inst")
+      if [[ "$deploy" != "-" ]]; then
+        PLAN_DEPLOYS+=("${primary}:${deploy}")
+      fi
+    else
+      PLAN_SKIPPED+=("$primary")
+      # Declined, but the primary tool may already exist: still sync it.
+      if check_cmd "$primary" && [[ "$deploy" != "-" ]]; then
+        PLAN_DEPLOYS+=("${primary}:${deploy}")
+      fi
+    fi
+  done
+}
+
+# Show the gathered plan and ask for ONE confirmation (brew-style).
+# Returns 1 when there is nothing to do or the user declines.
+show_plan_and_confirm() {
+  local installs="${PLAN_INSTALL_LABELS[*]:-}" skipped="${PLAN_SKIPPED[*]:-}"
+  local entry deploys=""
+  for entry in "${PLAN_DEPLOYS[@]}"; do deploys+="${entry%%:*} "; done
+  info "Plan for this run:"
+  [[ -n "$installs" ]] && detail "install: $installs"
+  [[ -n "$deploys"  ]] && detail "sync configs: ${deploys% }"
+  [[ -n "$skipped"  ]] && detail "skip: $skipped"
+  if [[ -z "$installs" && -z "$deploys" ]]; then
+    detail "nothing to do"
+    return 1
   fi
-  if check_cmd "$cmd" && [[ "$deploy_fn" != "-" ]]; then
-    "$deploy_fn"
-  fi
+  ask "Proceed?"
+}
+
+execute_plan() {
+  local i entry primary deploy
+  for i in "${!PLAN_INSTALL_CMDS[@]}"; do
+    # shellcheck disable=SC2086  # install commands are intentionally split
+    attempt "${PLAN_INSTALL_LABELS[$i]}" ${PLAN_INSTALL_CMDS[$i]}
+  done
+  for entry in "${PLAN_DEPLOYS[@]}"; do
+    primary="${entry%%:*}"; deploy="${entry#*:}"
+    if check_cmd "$primary"; then
+      "$deploy"
+    fi
+  done
   return 0
 }
 
@@ -206,6 +293,16 @@ extract_single_bin() {
   tar -C "$HOME/.local/bin" -xzf "$1" "$EXTRACT_BIN"
 }
 
+extract_shellcheck() {
+  local dir="/tmp/shellcheck-extract"
+  rm -rf "$dir"; mkdir -p "$dir"
+  tar -C "$dir" -xJf "$1" || return 1
+  mkdir -p "$HOME/.local/bin"
+  install -m 755 "$dir/shellcheck-${SHELLCHECK_TAG}/shellcheck" \
+    "$HOME/.local/bin/shellcheck" || return 1
+  rm -rf "$dir"
+}
+
 extract_helix() {
   # helix ships hx + a runtime dir that must live where hx looks for it.
   local dir="/tmp/helix-extract"
@@ -239,6 +336,8 @@ detect_env() {
   else
     need_cmd sudo
     SUDO="sudo"
+    # Remember whether sudo was already active before we run anything.
+    sudo -n -v 2>/dev/null || SUDO_REVOKE=1
   fi
 }
 
@@ -260,10 +359,10 @@ clone_or_update_repo() {
       exit 1
     fi
     info "Updating dotfiles repo"
-    ensure git -C "$DOTFILES" pull --rebase origin master
+    ensure retry 5 git -C "$DOTFILES" pull --rebase origin master
   else
     info "Cloning dotfiles repo"
-    ensure git clone --depth=1 "$REPO" "$DOTFILES"
+    ensure retry 5 git clone --depth=1 "$REPO" "$DOTFILES"
   fi
 }
 
@@ -275,7 +374,7 @@ clone_zsh_plugins() {
   local p
   for p in zsh-autosuggestions zsh-syntax-highlighting zsh-completions; do
     [[ -d "$HOME/.zsh/plugins/$p" ]] || \
-      ensure git clone --depth=1 "https://github.com/zsh-users/$p" "$HOME/.zsh/plugins/$p"
+      ensure retry 3 git clone --depth=1 "https://github.com/zsh-users/$p" "$HOME/.zsh/plugins/$p"
   done
 }
 
@@ -299,12 +398,25 @@ deploy_zsh_config() {
   set_default_shell
 }
 
+# Helix "config" includes its language servers (gopls if Go is present;
+# bash-ls keeps its internal Node.js prompt since that is a heavy extra).
+deploy_helix_termux() {
+  deploy_editor_configs
+  install_helix_lsp pkg
+}
+
+deploy_helix_ubuntu() {
+  deploy_editor_configs
+  install_helix_lsp apt-get
+}
+
 deploy_zellij_config() {
   mkdir -p "$HOME/.config/zellij"
   ln -sf "$DOTFILES/zellij/config.kdl" "$HOME/.config/zellij/config.kdl"
 }
 
 setup_ssh() {
+  info "Deploying hardened SSH client config"
   mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 700 "$HOME/.ssh" "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 600 "$DOTFILES/ssh/config" "$DOTFILES/ssh/hardening.conf"
@@ -332,6 +444,9 @@ set_default_shell() {
 # Language servers for Helix (Go + Bash).
 # $1 = package manager for nodejs ("pkg" or "apt-get").
 install_helix_lsp() {
+  if check_cmd gopls && check_cmd bash-language-server; then
+    return 0
+  fi
   info "Installing Helix language servers"
 
   if check_cmd go && ! check_cmd gopls; then
@@ -368,15 +483,26 @@ install_termux() {
   # Script prerequisites — installed without asking.
   ensure pkg install -y git curl unzip openssh
 
-  # Bricks: tool + its config, deployed together (see brick()).
-  brick zsh "Install zsh and its tools (fzf, eza, zoxide)?" \
-    deploy_zsh_config pkg install -y zsh fzf eza zoxide
-  brick zellij "Install zellij?" deploy_zellij_config pkg install -y zellij
-  brick hx "Install helix?" deploy_editor_configs pkg install -y helix
-  brick starship "Install starship?" - pkg install -y starship
-  brick go "Install golang?" - pkg install -y golang
-  if check_cmd go; then
-    brick sshm "Install sshm?" - go install github.com/Gu1llaum-3/sshm@latest
+  # Gather all choices first, then show the plan and confirm once.
+  plan_bricks \
+    "zsh,fzf,eza,zoxide|Install zsh and its tools (fzf, eza, zoxide)?|deploy_zsh_config|pkg install -y zsh fzf eza zoxide" \
+    "zellij|Install zellij?|deploy_zellij_config|pkg install -y zellij" \
+    "starship|Install starship?|-|pkg install -y starship" \
+    "go|Install golang?|-|pkg install -y golang" \
+    "hx|Install helix?|deploy_helix_termux|pkg install -y helix" \
+    "shellcheck|Install shellcheck?|-|pkg install -y shellcheck" \
+    "uv,python|Install uv (Python tool manager)?|-|pkg install -y uv python"
+  if check_cmd go || planned go; then
+    plan_bricks \
+      "sshm|Install sshm?|-|go install github.com/Gu1llaum-3/sshm@latest" \
+      "golangci-lint|Install golangci-lint?|-|install_golangci"
+  fi
+  if { check_cmd uv && check_cmd python; } || planned uv; then
+    plan_bricks "pre-commit|Install pre-commit?|-|uv tool install pre-commit"
+  fi
+
+  if show_plan_and_confirm; then
+    execute_plan
   fi
 
   # Persistent ssh-agent via termux-services (pairs with AddKeysToAgent).
@@ -398,16 +524,11 @@ install_termux() {
     fi
   fi
 
-  if ask "Deploy the hardened SSH client config (config.d)?"; then
-    setup_ssh
-  fi
-
-  if ask "Install Helix language servers (gopls, bash-ls)?"; then
-    install_helix_lsp pkg
-  fi
+  # ssh is a prerequisite, so its hardened client config deploys
+  # automatically (brick rule: tool present -> config deployed).
+  setup_ssh
 
   report_failures
-  success "Termux setup complete. Restart Termux to land in zsh."
 }
 
 # ==========================================================
@@ -485,6 +606,33 @@ install_go_glibc() {
   rm -f "$tmp"
 }
 
+# uv: Python package/tool manager (Astral). User-local in ~/.local/bin.
+# UV_NO_MODIFY_PATH: never let the installer edit rc files — .zshrc is a
+# symlink into the dotfiles repo and already exports ~/.local/bin.
+install_uv_glibc() {
+  check_cmd uv && return 0
+  curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
+}
+
+# ShellCheck linter: static release binary -> ~/.local/bin (asset names
+# use the raw uname -m arch, so $ARCH is used directly).
+install_shellcheck_glibc() {
+  check_cmd shellcheck && return 0
+  local tag; tag="$(gh_latest_tag koalaman/shellcheck)"
+  [[ -n "$tag" ]] || { fmt_error "Failed to resolve shellcheck version"; return 1; }
+  SHELLCHECK_TAG="$tag" fetch_and_install \
+    "https://github.com/koalaman/shellcheck/releases/download/${tag}/shellcheck-${tag}.linux.${ARCH}.tar.xz" \
+    extract_shellcheck
+}
+
+# golangci-lint: official installer, user-local. The project advises its
+# install script over `go install` (version/reproducibility issues).
+install_golangci() {
+  check_cmd golangci-lint && return 0
+  curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+    | sh -s -- -b "$HOME/.local/bin"
+}
+
 install_starship_glibc() {
   check_cmd starship && return 0
   mkdir -p "$HOME/.local/bin"
@@ -515,32 +663,40 @@ install_ubuntu() {
 
   install_apt_packages
 
-  # Bricks: tool + its config, deployed together (see brick()).
-  # $SUDO is intentionally unquoted: it disappears when empty.
-  brick zsh "Install zsh and its tools (fzf, eza, zoxide, keychain)?" \
-    deploy_zsh_config $SUDO apt-get install -y zsh fzf eza zoxide keychain
-  brick go "Install golang (~/.local/go)?" - install_go_glibc
-  brick hx "Install helix?" deploy_editor_configs install_helix_glibc
-  brick zellij "Install zellij?" deploy_zellij_config install_zellij_glibc
-  brick sshm "Install sshm?" - install_sshm_glibc
-  brick starship "Install starship?" - install_starship_glibc
+  # Gather all choices first, then show the plan and confirm once.
+  # $SUDO is intentionally unquoted in entries: it vanishes when empty.
+  plan_bricks \
+    "zsh,fzf,eza,zoxide,keychain|Install zsh and its tools (fzf, eza, zoxide, keychain)?|deploy_zsh_config|$SUDO apt-get install -y zsh fzf eza zoxide keychain" \
+    "go|Install golang (~/.local/go)?|-|install_go_glibc" \
+    "hx|Install helix?|deploy_helix_ubuntu|install_helix_glibc" \
+    "zellij|Install zellij?|deploy_zellij_config|install_zellij_glibc" \
+    "sshm|Install sshm?|-|install_sshm_glibc" \
+    "starship|Install starship?|-|install_starship_glibc" \
+    "uv|Install uv (Python tool manager)?|-|install_uv_glibc" \
+    "shellcheck|Install shellcheck?|-|install_shellcheck_glibc"
+  if check_cmd uv || planned uv; then
+    plan_bricks "pre-commit|Install pre-commit?|-|uv tool install pre-commit"
+  fi
+  if check_cmd go || planned go; then
+    plan_bricks "golangci-lint|Install golangci-lint?|-|install_golangci"
+  fi
   if has_gui; then
-    brick alacritty "Install alacritty?" deploy_alacritty_config install_alacritty_gui
-    if ask "Install the Nerd Font?"; then
-      attempt "Nerd Font" install_nerd_font_gui
-    fi
+    plan_bricks "alacritty|Install alacritty?|deploy_alacritty_config|install_alacritty_gui"
   fi
 
-  if ask "Deploy the hardened SSH client config (config.d)?"; then
-    setup_ssh
+  if show_plan_and_confirm; then
+    execute_plan
   fi
 
-  if ask "Install Helix language servers (gopls, bash-ls)?"; then
-    install_helix_lsp apt-get
+  if has_gui && ask "Install the Nerd Font?"; then
+    attempt "Nerd Font" install_nerd_font_gui
   fi
+
+  # ssh is a prerequisite, so its hardened client config deploys
+  # automatically (brick rule: tool present -> config deployed).
+  setup_ssh
 
   report_failures
-  success "Ubuntu setup complete."
 }
 
 # ==========================================================
@@ -581,7 +737,7 @@ install_rhel_bastion() {
   # Validate before restarting; roll back if the config is broken.
   if $SUDO sshd -t; then
     ensure $SUDO systemctl restart sshd
-    success "sshd hardened. Test a NEW connection before closing this one."
+    info "sshd hardened. Test a NEW connection before closing this one."
   else
     $SUDO rm -f /etc/ssh/sshd_config.d/00-hardening.conf
     fmt_error "sshd config validation failed — hardening removed, sshd untouched."
@@ -589,7 +745,6 @@ install_rhel_bastion() {
   fi
 
   report_failures
-  success "Bastion setup complete."
 }
 
 # ==========================================================
