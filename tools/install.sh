@@ -280,7 +280,7 @@ install_helix_lsp() {
   if ! check_cmd bash-language-server; then
     if check_cmd npm; then
       ensure npm install -g bash-language-server
-    elif ask "bash-language-server nécessite Node.js. L'installer ?"; then
+    elif ask "bash-language-server requires Node.js. Install it?"; then
       case "$1" in
         pkg)     ensure pkg install -y nodejs ;;
         apt-get) ensure $SUDO apt-get install -y nodejs npm ;;
@@ -298,7 +298,7 @@ install_helix_lsp() {
 install_termux() {
   info "Termux detected — installing via pkg"
 
-  if ask "Mettre à jour le système (pkg update/upgrade) ?"; then
+  if ask "Update system packages (pkg update/upgrade)?"; then
     ensure pkg update -y
     ensure pkg upgrade -y
   fi
@@ -307,8 +307,8 @@ install_termux() {
   ensure pkg install -y git curl unzip openssh
 
   # zsh and the CLI tools its config relies on, as one brick.
-  if ask "Installer zsh et ses outils (fzf, eza, zoxide) ?"; then
-    attempt "zsh + outils" pkg install -y zsh fzf eza zoxide
+  if ask "Install zsh and its tools (fzf, eza, zoxide)?"; then
+    attempt "zsh + tools" pkg install -y zsh fzf eza zoxide
   fi
 
   # One question per remaining tool; skipped if already installed.
@@ -316,26 +316,26 @@ install_termux() {
   for entry in zellij:zellij starship:starship \
                golang:go helix:hx; do
     pkgname="${entry%%:*}"; cmd="${entry##*:}"
-    if ! check_cmd "$cmd" && ask "Installer $pkgname ?"; then
+    if ! check_cmd "$cmd" && ask "Install $pkgname?"; then
       attempt "$pkgname" pkg install -y "$pkgname"
     fi
   done
 
-  if check_cmd go && ! check_cmd sshm && ask "Installer sshm ?"; then
+  if check_cmd go && ! check_cmd sshm && ask "Install sshm?"; then
     attempt "sshm" go install github.com/Gu1llaum-3/sshm@latest
   fi
 
   # Persistent ssh-agent via termux-services (pairs with AddKeysToAgent).
-  if ! check_cmd sv-enable && ask "Activer un ssh-agent persistant (termux-services) ?"; then
+  if ! check_cmd sv-enable && ask "Enable a persistent ssh-agent (termux-services)?"; then
     attempt "termux-services" pkg install -y termux-services
     if check_cmd sv-enable; then
       sv-enable ssh-agent 2>/dev/null \
-        || detail "Redémarre Termux puis lance : sv-enable ssh-agent"
+        || detail "Restart Termux, then run: sv-enable ssh-agent"
     fi
   fi
 
   # Nerd Font: on Termux the font is an APP setting (~/.termux/font.ttf)
-  if [[ ! -f "$HOME/.termux/font.ttf" ]] && ask "Installer la Nerd Font ?"; then
+  if [[ ! -f "$HOME/.termux/font.ttf" ]] && ask "Install the Nerd Font?"; then
     mkdir -p "$HOME/.termux"
     attempt "Nerd Font" curl -fL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
       "https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFont-Regular.ttf"
@@ -344,18 +344,18 @@ install_termux() {
     fi
   fi
 
-  if ask "Déployer zsh (plugins, .zshrc) et les configs (helix, zellij) ?"; then
+  if ask "Deploy zsh (plugins, .zshrc) and configs (helix, zellij)?"; then
     clone_zsh_plugins
     deploy_editor_configs
     deploy_common_symlinks
     set_default_shell
   fi
 
-  if ask "Déployer la config SSH client (durcissement, config.d) ?"; then
+  if ask "Deploy the hardened SSH client config (config.d)?"; then
     setup_ssh
   fi
 
-  if ask "Installer les language servers Helix (gopls, bash-ls) ?"; then
+  if ask "Install Helix language servers (gopls, bash-ls)?"; then
     install_helix_lsp pkg
   fi
 
@@ -369,7 +369,7 @@ install_termux() {
 install_apt_packages() {
   info "apt packages"
 
-  if ask "Mettre à jour le système (apt update/upgrade) ?"; then
+  if ask "Update system packages (apt update/upgrade)?"; then
     ensure $SUDO apt-get update -y
     $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
   else
@@ -381,8 +381,8 @@ install_apt_packages() {
   ensure $SUDO apt-get install -y curl git unzip
 
   # zsh and the CLI tools its config relies on, as one brick.
-  if ask "Installer zsh et ses outils (fzf, eza, zoxide, keychain) ?"; then
-    attempt "zsh + outils" $SUDO apt-get install -y \
+  if ask "Install zsh and its tools (fzf, eza, zoxide, keychain)?"; then
+    attempt "zsh + tools" $SUDO apt-get install -y \
       zsh fzf eza zoxide keychain
   fi
 }
@@ -470,31 +470,31 @@ install_ubuntu() {
 
   install_apt_packages
 
-  if ! check_cmd go && ask "Installer golang (~/.local/go) ?"; then
+  if ! check_cmd go && ask "Install golang (~/.local/go)?"; then
     attempt "golang" install_go_glibc
   fi
-  if ! check_cmd hx && ask "Installer helix ?"; then
+  if ! check_cmd hx && ask "Install helix?"; then
     attempt "helix" install_helix_glibc
   fi
-  if ! check_cmd zellij && ask "Installer zellij ?"; then
+  if ! check_cmd zellij && ask "Install zellij?"; then
     attempt "zellij" install_zellij_glibc
   fi
-  if ! check_cmd sshm && ask "Installer sshm ?"; then
+  if ! check_cmd sshm && ask "Install sshm?"; then
     attempt "sshm" install_sshm_glibc
   fi
-  if ! check_cmd starship && ask "Installer starship ?"; then
+  if ! check_cmd starship && ask "Install starship?"; then
     attempt "starship" install_starship_glibc
   fi
   if has_gui; then
-    if ! check_cmd alacritty && ask "Installer alacritty ?"; then
+    if ! check_cmd alacritty && ask "Install alacritty?"; then
       attempt "alacritty" install_alacritty_gui
     fi
-    if ask "Installer la Nerd Font ?"; then
+    if ask "Install the Nerd Font?"; then
       attempt "Nerd Font" install_nerd_font_gui
     fi
   fi
 
-  if ask "Déployer zsh (plugins, .zshrc) et les configs (helix, zellij, alacritty) ?"; then
+  if ask "Deploy zsh (plugins, .zshrc) and configs (helix, zellij, alacritty)?"; then
     clone_zsh_plugins
     deploy_editor_configs
     deploy_common_symlinks
@@ -502,11 +502,11 @@ install_ubuntu() {
     set_default_shell
   fi
 
-  if ask "Déployer la config SSH client (durcissement, config.d) ?"; then
+  if ask "Deploy the hardened SSH client config (config.d)?"; then
     setup_ssh
   fi
 
-  if ask "Installer les language servers Helix (gopls, bash-ls) ?"; then
+  if ask "Install Helix language servers (gopls, bash-ls)?"; then
     install_helix_lsp apt-get
   fi
 
@@ -527,12 +527,12 @@ bootstrap_rhel() {
 install_rhel_bastion() {
   info "Rocky/RHEL-family target — SSH bastion"
 
-  if ask "Mettre à jour le système (dnf update) ?"; then
+  if ask "Update system packages (dnf update)?"; then
     ensure $SUDO dnf -y update
   fi
 
-  if ! ask "Appliquer le durcissement sshd (clés uniquement, pas de root) ?"; then
-    detail "Durcissement sshd ignoré."
+  if ! ask "Apply sshd hardening (keys only, no root)?"; then
+    detail "sshd hardening skipped."
     report_failures
     return 0
   fi
