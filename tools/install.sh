@@ -21,8 +21,9 @@ REPO="https://github.com/lamboley/dotfiles.git"
 IS_TERMUX=0
 IS_RHEL=0
 ARCH=""
-ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64   (lazygit, sshm)
+ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64   (sshm)
 ARCH_AARCH64=""  # x86_64 -> x86_64 ; aarch64 -> aarch64 (zellij, helix)
+ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64   (Go toolchain)
 SUDO=""
 TARGET=""        # forced branch: ubuntu | termux | rhel (empty = auto-detect)
 ASSUME_YES=0     # -y / --yes: skip all prompts (install everything)
@@ -44,9 +45,11 @@ else
   C_RED=""; C_GREEN=""; C_BLUE=""; C_RESET=""
 fi
 
-info()      { printf '%s==>%s %s\n' "$C_BLUE" "$C_RESET" "$*"; }
-success()   { printf '%s==>%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
-fmt_error() { printf '%sError:%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
+info()      { printf '%s+++%s %s\n' "$C_BLUE" "$C_RESET" "$*"; }
+success()   { printf '%s+++%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
+# Indented sub-detail, printed under the current step/question.
+detail()    { printf '    %s---%s %s\n' "$C_BLUE" "$C_RESET" "$*"; }
+fmt_error() { printf '%s!!!%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
 
 # ==========================================================
 # Small utilities
@@ -85,7 +88,7 @@ attempt() {
 report_failures() {
   if [[ "${#FAILED_STEPS[@]}" -gt 0 ]]; then
     fmt_error "Some optional steps failed: ${FAILED_STEPS[*]}"
-    info "The rest of the setup completed. You can re-run the script to retry."
+    detail "The rest of the setup completed. You can re-run the script to retry."
   fi
 }
 
@@ -98,7 +101,7 @@ ask() {
   [[ "$ASSUME_YES" -eq 1 ]] && return 0
   [[ ! -t 1 || ! -e /dev/tty ]] && return 0
   local ans
-  printf '%s [Y/n] ' "$1"
+  printf '%s+++%s %s [Y/n] ' "$C_BLUE" "$C_RESET" "$1"
   read -r ans < /dev/tty || return 0
   [[ "$ans" =~ ^[Nn] ]] && return 1
   return 0
@@ -114,7 +117,7 @@ gh_latest_tag() {
 backup_if_real() {
   if [[ -e "$1" && ! -L "$1" ]]; then
     mv "$1" "$1.pre-dotfiles.bak"
-    info "Backed up existing $1 to $1.pre-dotfiles.bak"
+    detail "Backed up existing $1 to $1.pre-dotfiles.bak"
   fi
 }
 
@@ -124,7 +127,7 @@ backup_if_real() {
 #   $2 = name of a function handling extraction; it receives the downloaded
 #        file path as $1 and is responsible for installing the binary.
 # The helper owns the common parts (download + cleanup); the callback owns
-# the layout differences (/usr/local/bin vs /opt, runtime dir, etc.).
+# the layout differences (single binary vs runtime dir, etc.).
 # ==========================================================
 fetch_and_install() {
   local url="$1" extract_fn="$2"
@@ -137,11 +140,13 @@ fetch_and_install() {
 }
 
 # Extraction callbacks ------------------------------------------------------
-# Simple case: a .tar.gz containing a single binary -> /usr/local/bin.
+# All tools are installed user-local in ~/.local/bin (must be in PATH).
+# Simple case: a .tar.gz containing a single binary.
 # Uses $EXTRACT_BIN (set by caller) as the binary name inside the tarball.
 # Callbacks return non-zero on failure so attempt() can record it.
 extract_single_bin() {
-  $SUDO tar -C /usr/local/bin -xzf "$1" "$EXTRACT_BIN"
+  mkdir -p "$HOME/.local/bin"
+  tar -C "$HOME/.local/bin" -xzf "$1" "$EXTRACT_BIN"
 }
 
 extract_helix() {
@@ -150,7 +155,8 @@ extract_helix() {
   rm -rf "$dir"; mkdir -p "$dir"
   tar -C "$dir" -xJf "$1" || return 1
   local hxdir="$dir/helix-${HELIX_TAG}-${ARCH_AARCH64}-linux"
-  $SUDO install -m 755 "$hxdir/hx" /usr/local/bin/hx || return 1
+  mkdir -p "$HOME/.local/bin"
+  install -m 755 "$hxdir/hx" "$HOME/.local/bin/hx" || return 1
   mkdir -p "$HOME/.config/helix"
   rm -rf "$HOME/.config/helix/runtime"
   cp -r "$hxdir/runtime" "$HOME/.config/helix/runtime"
@@ -166,8 +172,8 @@ detect_env() {
 
   ARCH="$(uname -m)"
   case "$ARCH" in
-    x86_64)  ARCH_ARM64="x86_64"; ARCH_AARCH64="x86_64" ;;
-    aarch64) ARCH_ARM64="arm64";  ARCH_AARCH64="aarch64" ;;
+    x86_64)  ARCH_ARM64="x86_64"; ARCH_AARCH64="x86_64"; ARCH_GO="amd64" ;;
+    aarch64) ARCH_ARM64="arm64";  ARCH_AARCH64="aarch64"; ARCH_GO="arm64" ;;
     *) fmt_error "Unsupported architecture: $ARCH (expected x86_64 or aarch64)"; exit 1 ;;
   esac
 
@@ -251,7 +257,7 @@ setup_ssh() {
 set_default_shell() {
   if [[ "$(basename "${SHELL:-}")" != "zsh" ]] && check_cmd zsh; then
     chsh -s "$(command -v zsh)" || \
-      info "Could not change shell automatically; run 'chsh -s zsh' manually."
+      detail "Could not change shell automatically; run 'chsh -s zsh' manually."
   fi
 }
 
@@ -275,7 +281,7 @@ install_helix_lsp() {
       esac
       ensure npm install -g bash-language-server
     else
-      info "Skipping bash-language-server (Node.js declined)."
+      detail "Skipping bash-language-server (Node.js declined)."
     fi
   fi
 }
@@ -295,13 +301,13 @@ install_termux() {
   ensure pkg install -y git curl unzip openssh
 
   # zsh and the CLI tools its config relies on, as one brick.
-  if ask "Installer zsh et ses outils (fzf, ripgrep, fd, eza, zoxide) ?"; then
-    attempt "zsh + outils" pkg install -y zsh fzf ripgrep fd eza zoxide
+  if ask "Installer zsh et ses outils (fzf, eza, zoxide) ?"; then
+    attempt "zsh + outils" pkg install -y zsh fzf eza zoxide
   fi
 
   # One question per remaining tool; skipped if already installed.
   local entry pkgname cmd
-  for entry in zellij:zellij lazygit:lazygit starship:starship \
+  for entry in zellij:zellij starship:starship \
                golang:go helix:hx; do
     pkgname="${entry%%:*}"; cmd="${entry##*:}"
     if ! check_cmd "$cmd" && ask "Installer $pkgname ?"; then
@@ -311,6 +317,15 @@ install_termux() {
 
   if check_cmd go && ! check_cmd sshm && ask "Installer sshm ?"; then
     attempt "sshm" go install github.com/Gu1llaum-3/sshm@latest
+  fi
+
+  # Persistent ssh-agent via termux-services (pairs with AddKeysToAgent).
+  if ! check_cmd sv-enable && ask "Activer un ssh-agent persistant (termux-services) ?"; then
+    attempt "termux-services" pkg install -y termux-services
+    if check_cmd sv-enable; then
+      sv-enable ssh-agent 2>/dev/null \
+        || detail "Redémarre Termux puis lance : sv-enable ssh-agent"
+    fi
   fi
 
   # Nerd Font: on Termux the font is an APP setting (~/.termux/font.ttf)
@@ -360,15 +375,9 @@ install_apt_packages() {
   ensure $SUDO apt-get install -y curl git unzip
 
   # zsh and the CLI tools its config relies on, as one brick.
-  if ask "Installer zsh et ses outils (fzf, ripgrep, fd, eza, zoxide, keychain) ?"; then
+  if ask "Installer zsh et ses outils (fzf, eza, zoxide, keychain) ?"; then
     attempt "zsh + outils" $SUDO apt-get install -y \
-      zsh fzf ripgrep fd-find eza zoxide keychain
-  fi
-
-  # Ubuntu names fd's binary "fdfind"; expose it as "fd".
-  if check_cmd fdfind; then
-    mkdir -p "$HOME/.local/bin"
-    ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+      zsh fzf eza zoxide keychain
   fi
 }
 
@@ -392,15 +401,6 @@ install_helix_glibc() {
     extract_helix
 }
 
-install_lazygit_glibc() {
-  check_cmd lazygit && return 0
-  local tag ver; tag="$(gh_latest_tag jesseduffield/lazygit)"; ver="${tag#v}"
-  [[ -n "$ver" ]] || { fmt_error "Failed to resolve lazygit version"; return 1; }
-  EXTRACT_BIN=lazygit fetch_and_install \
-    "https://github.com/jesseduffield/lazygit/releases/download/${tag}/lazygit_${ver}_linux_${ARCH_ARM64}.tar.gz" \
-    extract_single_bin
-}
-
 install_zellij_glibc() {
   check_cmd zellij && return 0
   EXTRACT_BIN=zellij fetch_and_install \
@@ -417,9 +417,28 @@ install_sshm_glibc() {
     extract_single_bin
 }
 
+# Go toolchain, user-local: ~/.local/go (add ~/.local/go/bin to PATH).
+install_go_glibc() {
+  check_cmd go && return 0
+  local ver
+  ver="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)"
+  [[ -n "$ver" ]] || { fmt_error "Failed to resolve Go version"; return 1; }
+  local tmp; tmp="$(mktemp)"
+  if ! curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o "$tmp" \
+    "https://go.dev/dl/${ver}.linux-${ARCH_GO}.tar.gz"; then
+    rm -f "$tmp"; return 1
+  fi
+  rm -rf "$HOME/.local/go"
+  mkdir -p "$HOME/.local"
+  tar -C "$HOME/.local" -xzf "$tmp" || { rm -f "$tmp"; return 1; }
+  rm -f "$tmp"
+}
+
 install_starship_glibc() {
   check_cmd starship && return 0
-  curl -fsSL https://starship.rs/install.sh | $SUDO sh -s -- --yes
+  mkdir -p "$HOME/.local/bin"
+  curl -fsSL https://starship.rs/install.sh | \
+    sh -s -- --yes --bin-dir "$HOME/.local/bin"
 }
 
 install_alacritty_gui() {
@@ -440,13 +459,16 @@ deploy_alacritty_config() {
 install_ubuntu() {
   info "Ubuntu/glibc target"
 
+  # Tools are installed user-local; make sure the directory exists.
+  mkdir -p "$HOME/.local/bin"
+
   install_apt_packages
 
+  if ! check_cmd go && ask "Installer golang (~/.local/go) ?"; then
+    attempt "golang" install_go_glibc
+  fi
   if ! check_cmd hx && ask "Installer helix ?"; then
     attempt "helix" install_helix_glibc
-  fi
-  if ! check_cmd lazygit && ask "Installer lazygit ?"; then
-    attempt "lazygit" install_lazygit_glibc
   fi
   if ! check_cmd zellij && ask "Installer zellij ?"; then
     attempt "zellij" install_zellij_glibc
@@ -504,7 +526,7 @@ install_rhel_bastion() {
   fi
 
   if ! ask "Appliquer le durcissement sshd (clés uniquement, pas de root) ?"; then
-    info "Durcissement sshd ignoré."
+    detail "Durcissement sshd ignoré."
     report_failures
     return 0
   fi
@@ -569,7 +591,7 @@ main() {
     rhel)   IS_TERMUX=0; IS_RHEL=1 ;;
     ubuntu) IS_TERMUX=0; IS_RHEL=0 ;;
   esac
-  [[ -n "$TARGET" ]] && info "Forced target: $TARGET"
+  [[ -n "$TARGET" ]] && detail "Forced target: $TARGET"
 
   [[ "$IS_RHEL" -eq 1 ]] && bootstrap_rhel
   preflight
