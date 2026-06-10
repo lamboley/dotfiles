@@ -207,7 +207,10 @@ clone_zsh_plugins() {
 
 deploy_editor_configs() {
   mkdir -p "$HOME/.config/helix"
-  cp -r "$DOTFILES/helix/." "$HOME/.config/helix/"
+  local f
+  for f in "$DOTFILES"/helix/*; do
+    ln -sfn "$f" "$HOME/.config/helix/$(basename "$f")"
+  done
 }
 
 deploy_common_symlinks() {
