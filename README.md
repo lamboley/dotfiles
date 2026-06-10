@@ -18,5 +18,5 @@ This will install and configure the following:
 
 | Method    | Command                                                                                           |
 | :-------- | :------------------------------------------------------------------------------------------------ |
-| **curl**  | `bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh)"` |
-| **wget**  | `bash -c "$(wget -O- https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh)"`   |
+| **curl**  | `bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"` |
+| **wget**  | `bash -c "$(wget -O- https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"`   |
