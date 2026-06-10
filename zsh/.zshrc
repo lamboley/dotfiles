@@ -9,6 +9,12 @@ if command -v zellij >/dev/null 2>&1 \
   zellij attach -c main
 fi
 
+# --- zellij: auto-start, one persistent session reattached ---
+if command -v zellij >/dev/null 2>&1 \
+  && [ -z "${ZELLIJ:-}" ] && [ -z "${SSH_CONNECTION:-}" ] && [ -t 1 ]; then
+  zellij attach -c main
+fi
+
 # --- Helix runtime (Termux: the package puts it in opt/, hx cannot find it alone) ---
 [ -d "$PREFIX/opt/helix/runtime" ] && export HELIX_RUNTIME="$PREFIX/opt/helix/runtime"
 
