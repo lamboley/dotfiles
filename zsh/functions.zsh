@@ -3,5 +3,5 @@ update-packages() {
 }
 
 update-dotfiles() {
-  sh "$HOME/.dotfiles/install.sh"
+  sh "$HOME/.dotfiles/tools/install.sh"
 }
