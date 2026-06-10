@@ -403,10 +403,9 @@ install_helix_lsp() {
 # TERMUX branch
 # ==========================================================
 install_termux() {
-  if ask "Update system packages (pkg update/upgrade)?"; then
-    ensure pkg update -y
-    ensure pkg upgrade -y
-  fi
+  # Refresh package lists only; upgrading the system is update-packages()'s
+  # job (zsh function), not the installer's.
+  ensure pkg update -y
 
   # Script prerequisites — installed without asking.
   ensure pkg install -y git curl unzip openssh
@@ -428,10 +427,7 @@ install_termux() {
     brick golangci-lint "Install golangci-lint?" - install_golangci
   fi
   brick shellcheck "Install shellcheck?" - pkg install -y shellcheck
-  brick uv "Install uv (Python tool manager)?" - pkg install -y uv python
-  if check_cmd uv && check_cmd python; then
-    brick pre-commit "Install pre-commit?" - uv tool install pre-commit
-  fi
+  brick pre-commit "Install pre-commit (via uv)?" - install_precommit pkg
 
   # Persistent ssh-agent via termux-services (pairs with AddKeysToAgent).
   if ! check_cmd sv-enable && ask "Enable a persistent ssh-agent (termux-services)?"; then
@@ -463,13 +459,9 @@ install_termux() {
 # UBUNTU / glibc branch
 # ==========================================================
 install_apt_packages() {
-  if ask "Update system packages (apt update/upgrade)?"; then
-    ensure $SUDO apt-get update -y
-    $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
-  else
-    # Package lists are still needed to install anything below.
-    ensure $SUDO apt-get update -y
-  fi
+  # Refresh package lists only; upgrading the system is update-packages()'s
+  # job (zsh function), not the installer's.
+  ensure $SUDO apt-get update -y
 
   # Script prerequisites — installed without asking.
   ensure $SUDO apt-get install -y curl git unzip
@@ -532,12 +524,27 @@ install_go_glibc() {
   rm -f "$tmp"
 }
 
-# uv: Python package/tool manager (Astral). User-local in ~/.local/bin.
+# uv: Python package/tool manager (Astral). Not a user-facing brick: it is
+# the install vehicle for pre-commit (and any future Python CLI tool).
 # UV_NO_MODIFY_PATH: never let the installer edit rc files — .zshrc is a
 # symlink into the dotfiles repo and already exports ~/.local/bin.
 install_uv_glibc() {
   check_cmd uv && return 0
   curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
+}
+
+# pre-commit, installed through uv. uv (and python on Termux) is brought
+# in automatically as a dependency step.
+# $1 = "pkg" (Termux) or "glibc" (Ubuntu)
+install_precommit() {
+  check_cmd pre-commit && return 0
+  if ! check_cmd uv; then
+    case "$1" in
+      pkg)   pkg install -y uv python || return 1 ;;
+      glibc) install_uv_glibc || return 1 ;;
+    esac
+  fi
+  uv tool install pre-commit
 }
 
 # ShellCheck linter: static release binary -> ~/.local/bin (asset names
@@ -601,10 +608,7 @@ install_ubuntu() {
   brick zellij "Install zellij?" deploy_zellij_config install_zellij_glibc
   brick sshm "Install sshm?" - install_sshm_glibc
   brick starship "Install starship?" - install_starship_glibc
-  brick uv "Install uv (Python tool manager)?" - install_uv_glibc
-  if check_cmd uv; then
-    brick pre-commit "Install pre-commit?" - uv tool install pre-commit
-  fi
+  brick pre-commit "Install pre-commit (via uv)?" - install_precommit glibc
   brick shellcheck "Install shellcheck?" - install_shellcheck_glibc
   if check_cmd go; then
     brick golangci-lint "Install golangci-lint?" - install_golangci
@@ -634,10 +638,6 @@ bootstrap_rhel() {
 }
 
 install_rhel_bastion() {
-  if ask "Update system packages (dnf update)?"; then
-    ensure $SUDO dnf -y update
-  fi
-
   if ! ask "Apply sshd hardening (keys only, no root)?"; then
     detail "sshd hardening skipped."
     report_failures
