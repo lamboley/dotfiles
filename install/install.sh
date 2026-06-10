@@ -1,15 +1,13 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # Dotfiles installer for lamboley/dotfiles.
 #
 # Run via curl:
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"
 # Or download then run (recommended for interactive prompts):
-#   curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/tools/install.sh -o install.sh
+#   curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh -o install.sh
 #   bash install.sh
 #
-# Targets: Termux (native, bionic), Ubuntu/glibc (desktop, servers, proot),
-# and Rocky/RHEL-family hosts (SSH bastion hardening only).
 # Usage: install.sh [ubuntu|termux|rhel] [-y]  (see --help)
 #
 set -euo pipefail
