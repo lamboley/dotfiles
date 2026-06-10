@@ -135,89 +135,22 @@ any_missing() {
   return 1
 }
 
-# ==========================================================
-# Plan/execute engine (Homebrew-style: announce, confirm, act).
-# A brick entry is "commands|prompt|deploy|install command":
-#   - commands: comma-separated; if ALL are present, only the config syncs
-#   - prompt:   question asked when something is missing
-#   - deploy:   config function tied to the first command ("-" = none)
-#   - install:  command run if the user accepts
-# Questions are gathered first, the resulting plan is shown once,
-# then a single confirmation triggers execution.
-# ==========================================================
-PLAN_INSTALL_LABELS=()
-PLAN_INSTALL_CMDS=()
-PLAN_DEPLOYS=()   # "primary_command:deploy_function"
-PLAN_SKIPPED=()
-
-# True if the given tool was accepted for installation in this plan.
-planned() {
-  local x
-  for x in "${PLAN_INSTALL_LABELS[@]}"; do
-    [[ "$x" == "$1" ]] && return 0
-  done
-  return 1
-}
-
-plan_bricks() {
-  local entry cmds prompt deploy inst primary
-  local -a clist
-  for entry in "$@"; do
-    IFS='|' read -r cmds prompt deploy inst <<<"$entry"
-    IFS=',' read -ra clist <<<"$cmds"
-    primary="${clist[0]}"
-    if ! any_missing "${clist[@]}"; then
-      # Everything present: only the config sync goes into the plan.
-      if [[ "$deploy" != "-" ]]; then
-        PLAN_DEPLOYS+=("${primary}:${deploy}")
-      fi
-      continue
-    fi
-    if ask "$prompt"; then
-      PLAN_INSTALL_LABELS+=("$primary")
-      PLAN_INSTALL_CMDS+=("$inst")
-      if [[ "$deploy" != "-" ]]; then
-        PLAN_DEPLOYS+=("${primary}:${deploy}")
-      fi
-    else
-      PLAN_SKIPPED+=("$primary")
-      # Declined, but the primary tool may already exist: still sync it.
-      if check_cmd "$primary" && [[ "$deploy" != "-" ]]; then
-        PLAN_DEPLOYS+=("${primary}:${deploy}")
-      fi
-    fi
-  done
-}
-
-# Show the gathered plan and ask for ONE confirmation (brew-style).
-# Returns 1 when there is nothing to do or the user declines.
-show_plan_and_confirm() {
-  local installs="${PLAN_INSTALL_LABELS[*]:-}" skipped="${PLAN_SKIPPED[*]:-}"
-  local entry deploys=""
-  for entry in "${PLAN_DEPLOYS[@]}"; do deploys+="${entry%%:*} "; done
-  info "Plan for this run:"
-  [[ -n "$installs" ]] && detail "install: $installs"
-  [[ -n "$deploys"  ]] && detail "sync configs: ${deploys% }"
-  [[ -n "$skipped"  ]] && detail "skip: $skipped"
-  if [[ -z "$installs" && -z "$deploys" ]]; then
-    detail "nothing to do"
-    return 1
+# One "brick" = a tool and its config, handled together:
+#   - tool already present  -> (re)deploy its config, no question asked
+#   - tool absent           -> ask; on yes, install then deploy its config
+#   - user declines         -> skip both (config still syncs if the
+#     primary tool exists)
+# $1 = command to check ; $2 = prompt ; $3 = deploy function ("-" for none)
+# $4... = install command
+brick() {
+  local cmd="$1" prompt="$2" deploy_fn="$3"; shift 3
+  if ! check_cmd "$cmd"; then
+    ask "$prompt" || return 0
+    attempt "$cmd" "$@"
   fi
-  ask "Proceed?"
-}
-
-execute_plan() {
-  local i entry primary deploy
-  for i in "${!PLAN_INSTALL_CMDS[@]}"; do
-    # shellcheck disable=SC2086  # install commands are intentionally split
-    attempt "${PLAN_INSTALL_LABELS[$i]}" ${PLAN_INSTALL_CMDS[$i]}
-  done
-  for entry in "${PLAN_DEPLOYS[@]}"; do
-    primary="${entry%%:*}"; deploy="${entry#*:}"
-    if check_cmd "$primary"; then
-      "$deploy"
-    fi
-  done
+  if check_cmd "$cmd" && [[ "$deploy_fn" != "-" ]]; then
+    "$deploy_fn"
+  fi
   return 0
 }
 
@@ -416,7 +349,6 @@ deploy_zellij_config() {
 }
 
 setup_ssh() {
-  info "Deploying hardened SSH client config"
   mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 700 "$HOME/.ssh" "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 600 "$DOTFILES/ssh/config" "$DOTFILES/ssh/hardening.conf"
@@ -473,8 +405,6 @@ install_helix_lsp() {
 # TERMUX branch
 # ==========================================================
 install_termux() {
-  info "Termux detected — installing via pkg"
-
   if ask "Update system packages (pkg update/upgrade)?"; then
     ensure pkg update -y
     ensure pkg upgrade -y
@@ -483,26 +413,26 @@ install_termux() {
   # Script prerequisites — installed without asking.
   ensure pkg install -y git curl unzip openssh
 
-  # Gather all choices first, then show the plan and confirm once.
-  plan_bricks \
-    "zsh,fzf,eza,zoxide|Install zsh and its tools (fzf, eza, zoxide)?|deploy_zsh_config|pkg install -y zsh fzf eza zoxide" \
-    "zellij|Install zellij?|deploy_zellij_config|pkg install -y zellij" \
-    "starship|Install starship?|-|pkg install -y starship" \
-    "go|Install golang?|-|pkg install -y golang" \
-    "hx|Install helix?|deploy_helix_termux|pkg install -y helix" \
-    "shellcheck|Install shellcheck?|-|pkg install -y shellcheck" \
-    "uv,python|Install uv (Python tool manager)?|-|pkg install -y uv python"
-  if check_cmd go || planned go; then
-    plan_bricks \
-      "sshm|Install sshm?|-|go install github.com/Gu1llaum-3/sshm@latest" \
-      "golangci-lint|Install golangci-lint?|-|install_golangci"
+  # Bricks: tool + its config, installed and deployed immediately.
+  # The zsh group checks every member, not just zsh itself.
+  if any_missing zsh fzf eza zoxide; then
+    if ask "Install zsh and its tools (fzf, eza, zoxide)?"; then
+      attempt "zsh + tools" pkg install -y zsh fzf eza zoxide
+    fi
   fi
-  if { check_cmd uv && check_cmd python; } || planned uv; then
-    plan_bricks "pre-commit|Install pre-commit?|-|uv tool install pre-commit"
+  check_cmd zsh && deploy_zsh_config
+  brick zellij "Install zellij?" deploy_zellij_config pkg install -y zellij
+  brick starship "Install starship?" - pkg install -y starship
+  brick go "Install golang?" - pkg install -y golang
+  brick hx "Install helix?" deploy_helix_termux pkg install -y helix
+  if check_cmd go; then
+    brick sshm "Install sshm?" - go install github.com/Gu1llaum-3/sshm@latest
+    brick golangci-lint "Install golangci-lint?" - install_golangci
   fi
-
-  if show_plan_and_confirm; then
-    execute_plan
+  brick shellcheck "Install shellcheck?" - pkg install -y shellcheck
+  brick uv "Install uv (Python tool manager)?" - pkg install -y uv python
+  if check_cmd uv && check_cmd python; then
+    brick pre-commit "Install pre-commit?" - uv tool install pre-commit
   fi
 
   # Persistent ssh-agent via termux-services (pairs with AddKeysToAgent).
@@ -535,8 +465,6 @@ install_termux() {
 # UBUNTU / glibc branch
 # ==========================================================
 install_apt_packages() {
-  info "apt packages"
-
   if ask "Update system packages (apt update/upgrade)?"; then
     ensure $SUDO apt-get update -y
     $SUDO apt-get upgrade -y && $SUDO apt-get autoremove -y
@@ -656,40 +584,38 @@ deploy_alacritty_config() {
 }
 
 install_ubuntu() {
-  info "Ubuntu/glibc target"
-
   # Tools are installed user-local; make sure the directory exists.
   mkdir -p "$HOME/.local/bin"
 
   install_apt_packages
 
-  # Gather all choices first, then show the plan and confirm once.
-  # $SUDO is intentionally unquoted in entries: it vanishes when empty.
-  plan_bricks \
-    "zsh,fzf,eza,zoxide,keychain|Install zsh and its tools (fzf, eza, zoxide, keychain)?|deploy_zsh_config|$SUDO apt-get install -y zsh fzf eza zoxide keychain" \
-    "go|Install golang (~/.local/go)?|-|install_go_glibc" \
-    "hx|Install helix?|deploy_helix_ubuntu|install_helix_glibc" \
-    "zellij|Install zellij?|deploy_zellij_config|install_zellij_glibc" \
-    "sshm|Install sshm?|-|install_sshm_glibc" \
-    "starship|Install starship?|-|install_starship_glibc" \
-    "uv|Install uv (Python tool manager)?|-|install_uv_glibc" \
-    "shellcheck|Install shellcheck?|-|install_shellcheck_glibc"
-  if check_cmd uv || planned uv; then
-    plan_bricks "pre-commit|Install pre-commit?|-|uv tool install pre-commit"
+  # Bricks: tool + its config, installed and deployed immediately.
+  # The zsh group checks every member, not just zsh itself.
+  # $SUDO is intentionally unquoted: it disappears when empty.
+  if any_missing zsh fzf eza zoxide keychain; then
+    if ask "Install zsh and its tools (fzf, eza, zoxide, keychain)?"; then
+      attempt "zsh + tools" $SUDO apt-get install -y zsh fzf eza zoxide keychain
+    fi
   fi
-  if check_cmd go || planned go; then
-    plan_bricks "golangci-lint|Install golangci-lint?|-|install_golangci"
+  check_cmd zsh && deploy_zsh_config
+  brick go "Install golang (~/.local/go)?" - install_go_glibc
+  brick hx "Install helix?" deploy_helix_ubuntu install_helix_glibc
+  brick zellij "Install zellij?" deploy_zellij_config install_zellij_glibc
+  brick sshm "Install sshm?" - install_sshm_glibc
+  brick starship "Install starship?" - install_starship_glibc
+  brick uv "Install uv (Python tool manager)?" - install_uv_glibc
+  if check_cmd uv; then
+    brick pre-commit "Install pre-commit?" - uv tool install pre-commit
+  fi
+  brick shellcheck "Install shellcheck?" - install_shellcheck_glibc
+  if check_cmd go; then
+    brick golangci-lint "Install golangci-lint?" - install_golangci
   fi
   if has_gui; then
-    plan_bricks "alacritty|Install alacritty?|deploy_alacritty_config|install_alacritty_gui"
-  fi
-
-  if show_plan_and_confirm; then
-    execute_plan
-  fi
-
-  if has_gui && ask "Install the Nerd Font?"; then
-    attempt "Nerd Font" install_nerd_font_gui
+    brick alacritty "Install alacritty?" deploy_alacritty_config install_alacritty_gui
+    if ask "Install the Nerd Font?"; then
+      attempt "Nerd Font" install_nerd_font_gui
+    fi
   fi
 
   # ssh is a prerequisite, so its hardened client config deploys
@@ -710,8 +636,6 @@ bootstrap_rhel() {
 }
 
 install_rhel_bastion() {
-  info "Rocky/RHEL-family target — SSH bastion"
-
   if ask "Update system packages (dnf update)?"; then
     ensure $SUDO dnf -y update
   fi
