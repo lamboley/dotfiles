@@ -19,10 +19,12 @@ DOTFILES="$HOME/.dotfiles"
 REPO="https://github.com/lamboley/dotfiles.git"
 
 IS_TERMUX=0
+IS_RHEL=0
 ARCH=""
 ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64   (lazygit, sshm)
 ARCH_AARCH64=""  # x86_64 -> x86_64 ; aarch64 -> aarch64 (zellij, helix)
 SUDO=""
+ASSUME_YES=0     # -y / --yes: skip all prompts (install everything)
 FAILED_STEPS=()  # optional steps that failed (reported at the end)
 
 # Clean up any leftover temp files on exit, even if the script dies mid-way.
@@ -89,8 +91,10 @@ report_failures() {
 has_gui() { [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; }
 
 # Yes/no prompt that survives `curl | bash` by reading from /dev/tty.
-# Non-interactive (no tty): returns "yes" so unattended installs are complete.
+# Non-interactive (no tty) or -y flag: returns "yes" so unattended
+# installs are complete.
 ask() {
+  [[ "$ASSUME_YES" -eq 1 ]] && return 0
   [[ ! -t 1 || ! -e /dev/tty ]] && return 0
   local ans
   printf '%s [Y/n] ' "$1"
@@ -157,6 +161,7 @@ extract_helix() {
 # ==========================================================
 detect_env() {
   [[ -n "${TERMUX_VERSION:-}" ]] && IS_TERMUX=1
+  command -v dnf >/dev/null 2>&1 && IS_RHEL=1
 
   ARCH="$(uname -m)"
   case "$ARCH" in
@@ -205,6 +210,10 @@ clone_zsh_plugins() {
   done
 }
 
+# Symlink each file/dir from the repo's helix/ folder into ~/.config/helix/.
+# The directory itself stays real so the helix runtime/ (installed by
+# extract_helix or pkg) can live alongside without polluting the repo.
+# -n: replace an existing symlink-to-dir instead of descending into it.
 deploy_editor_configs() {
   mkdir -p "$HOME/.config/helix"
   local f
@@ -275,22 +284,22 @@ install_helix_lsp() {
 # ==========================================================
 install_termux() {
   info "Termux detected — installing via pkg"
-  ensure pkg update -y
-  ensure pkg upgrade -y
-  ensure pkg install -y \
-    git zsh zellij lazygit starship \
-    fzf ripgrep fd eza zoxide openssh curl unzip golang
 
-  ensure pkg install -y helix
+  if ask "Installer/mettre à jour les paquets de base (zsh, zellij, helix, lazygit, ...) ?"; then
+    ensure pkg update -y
+    ensure pkg upgrade -y
+    ensure pkg install -y \
+      git zsh zellij lazygit starship \
+      fzf ripgrep fd eza zoxide openssh curl unzip golang
+    ensure pkg install -y helix
+  fi
 
-  clone_zsh_plugins
-
-  if ! check_cmd sshm; then
+  if ! check_cmd sshm && ask "Installer sshm ?"; then
     attempt "sshm" go install github.com/Gu1llaum-3/sshm@latest
   fi
 
   # Nerd Font: on Termux the font is an APP setting (~/.termux/font.ttf)
-  if [[ ! -f "$HOME/.termux/font.ttf" ]]; then
+  if [[ ! -f "$HOME/.termux/font.ttf" ]] && ask "Installer la Nerd Font ?"; then
     mkdir -p "$HOME/.termux"
     attempt "Nerd Font" curl -fL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
       "https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFont-Regular.ttf"
@@ -299,13 +308,22 @@ install_termux() {
     fi
   fi
 
-  deploy_editor_configs
-  deploy_common_symlinks
-  setup_ssh
-  set_default_shell
-  install_helix_lsp pkg
-  report_failures
+  if ask "Déployer zsh (plugins, .zshrc) et les configs (helix, zellij) ?"; then
+    clone_zsh_plugins
+    deploy_editor_configs
+    deploy_common_symlinks
+    set_default_shell
+  fi
 
+  if ask "Déployer la config SSH client (durcissement, config.d) ?"; then
+    setup_ssh
+  fi
+
+  if ask "Installer les language servers Helix (gopls, bash-ls) ?"; then
+    install_helix_lsp pkg
+  fi
+
+  report_failures
   success "Termux setup complete. Restart Termux to land in zsh."
 }
 
@@ -389,35 +407,123 @@ deploy_alacritty_config() {
 
 install_ubuntu() {
   info "Ubuntu/glibc target"
-  install_apt_packages                          # critical: must succeed
-  attempt "Nerd Font"  install_nerd_font_gui
-  attempt "helix"      install_helix_glibc
-  attempt "lazygit"    install_lazygit_glibc
-  attempt "zellij"     install_zellij_glibc
-  attempt "sshm"       install_sshm_glibc
-  attempt "alacritty"  install_alacritty_gui
-  attempt "starship"   install_starship_glibc
-  clone_zsh_plugins
-  deploy_editor_configs
-  deploy_common_symlinks
-  deploy_alacritty_config
-  setup_ssh
-  set_default_shell
-  install_helix_lsp apt-get
+
+  if ask "Installer les paquets apt de base (zsh, fzf, ripgrep, eza, ...) ?"; then
+    install_apt_packages
+  fi
+
+  if ask "Installer la Nerd Font (GUI uniquement) ?"; then
+    attempt "Nerd Font" install_nerd_font_gui
+  fi
+  if ask "Installer helix ?"; then
+    attempt "helix" install_helix_glibc
+  fi
+  if ask "Installer lazygit ?"; then
+    attempt "lazygit" install_lazygit_glibc
+  fi
+  if ask "Installer zellij ?"; then
+    attempt "zellij" install_zellij_glibc
+  fi
+  if ask "Installer sshm ?"; then
+    attempt "sshm" install_sshm_glibc
+  fi
+  if ask "Installer alacritty (GUI uniquement) ?"; then
+    attempt "alacritty" install_alacritty_gui
+  fi
+  if ask "Installer starship ?"; then
+    attempt "starship" install_starship_glibc
+  fi
+
+  if ask "Déployer zsh (plugins, .zshrc) et les configs (helix, zellij, alacritty) ?"; then
+    clone_zsh_plugins
+    deploy_editor_configs
+    deploy_common_symlinks
+    deploy_alacritty_config
+    set_default_shell
+  fi
+
+  if ask "Déployer la config SSH client (durcissement, config.d) ?"; then
+    setup_ssh
+  fi
+
+  if ask "Installer les language servers Helix (gopls, bash-ls) ?"; then
+    install_helix_lsp apt-get
+  fi
+
   report_failures
   success "Ubuntu setup complete."
+}
+
+# ==========================================================
+# ROCKY / RHEL-family branch (SSH bastion: hardening only)
+# No zsh, no tools — this host is only a ProxyJump relay.
+# Deploys ssh/sshd_hardening.conf into /etc/ssh/sshd_config.d/
+# with a lockout guard and config validation before restart.
+# ==========================================================
+bootstrap_rhel() {
+  check_cmd git || ensure $SUDO dnf -y install git
+}
+
+install_rhel_bastion() {
+  info "Rocky/RHEL-family target — SSH bastion"
+
+  if ask "Mettre à jour le système (dnf update) ?"; then
+    ensure $SUDO dnf -y update
+  fi
+
+  if ! ask "Appliquer le durcissement sshd (clés uniquement, pas de root) ?"; then
+    info "Durcissement sshd ignoré."
+    report_failures
+    return 0
+  fi
+
+  # Lockout guard: never disable password auth without a working key.
+  if [[ ! -s "$HOME/.ssh/authorized_keys" ]]; then
+    fmt_error "No ~/.ssh/authorized_keys found."
+    fmt_error "Add your public key first or you will lock yourself out."
+    exit 1
+  fi
+
+  # Copy (not symlink): /etc must not depend on a file in \$HOME.
+  ensure $SUDO install -m 600 -o root -g root \
+    "$DOTFILES/ssh/sshd_hardening.conf" \
+    /etc/ssh/sshd_config.d/00-hardening.conf
+
+  # Validate before restarting; roll back if the config is broken.
+  if $SUDO sshd -t; then
+    ensure $SUDO systemctl restart sshd
+    success "sshd hardened. Test a NEW connection before closing this one."
+  else
+    $SUDO rm -f /etc/ssh/sshd_config.d/00-hardening.conf
+    fmt_error "sshd config validation failed — hardening removed, sshd untouched."
+    exit 1
+  fi
+
+  report_failures
+  success "Bastion setup complete."
 }
 
 # ==========================================================
 # Main
 # ==========================================================
 main() {
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      -y|--yes) ASSUME_YES=1 ;;
+      *) fmt_error "unknown option: $arg (usage: install.sh [-y])"; exit 1 ;;
+    esac
+  done
+
   detect_env
+  [[ "$IS_RHEL" -eq 1 ]] && bootstrap_rhel
   preflight
   clone_or_update_repo
 
   if [[ "$IS_TERMUX" -eq 1 ]]; then
     install_termux
+  elif [[ "$IS_RHEL" -eq 1 ]]; then
+    install_rhel_bastion
   else
     install_ubuntu
   fi
