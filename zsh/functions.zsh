@@ -4,6 +4,11 @@ update-packages() {
     pkg update -y && pkg upgrade -y && apt clean -y && apt autoremove -y
   elif command -v apt >/dev/null 2>&1; then
     sudo apt update -y && sudo apt upgrade -y && sudo apt clean -y && sudo apt autoremove -y
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf -y upgrade && sudo dnf -y autoremove
+  else
+    echo "update-packages: no supported package manager found" >&2
+    return 1
   fi
 }
 
