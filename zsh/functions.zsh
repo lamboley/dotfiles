@@ -1,4 +1,4 @@
-# Update and upgrade system packages (Termux, apt-based, dnf-based).
+# Update and upgrade system packages
 update-packages() {
   if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
     pkg update -y && pkg upgrade -y && apt clean -y && apt autoremove -y
