@@ -1,11 +1,14 @@
 # Never version SSH secrets or machine-local host definitions
 config.local
 ssh/config.local
-# Real config.d host files stay local; only the example is tracked
-ssh/config.d/*
-!ssh/config.d/00-example.conf
 **/id_*
 !**/id_*.pub
 *.pem
 *.key
 known_hosts*
+
+# Real config.d host files stay local; only the example
+# and age-encrypted files are tracked
+ssh/config.d/*
+!ssh/config.d/00-example.conf
+!ssh/config.d/*.age
