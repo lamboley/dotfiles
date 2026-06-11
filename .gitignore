@@ -6,9 +6,14 @@ ssh/config.local
 *.pem
 *.key
 known_hosts*
+<<<<<<< Updated upstream
 
 # Real config.d host files stay local; only the example
 # and age-encrypted files are tracked
 ssh/config.d/*
 !ssh/config.d/00-example.conf
 !ssh/config.d/*.age
+=======
+ssh/config.d/*.conf
+!ssh/config.d/00-example.conf
+>>>>>>> Stashed changes

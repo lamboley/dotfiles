@@ -2,3 +2,9 @@
 
 Include config.d/*.conf
 Include hardening.conf
+
+# Tags: proxy
+Host perso-proxy-ssh
+    HostName 178.105.115.177
+    User root
+    IdentityFile ~/.ssh/id_bastion.ssh
