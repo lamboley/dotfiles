@@ -346,33 +346,37 @@ deploy_zellij_config() {
   ln -sf "$DOTFILES/zellij/config.kdl" "$HOME/.config/zellij/config.kdl"
 }
 
-# Encrypted bastion config: ssh/config.d/10-bastion.conf.age in the repo
-# keeps the VPS IP/user out of public git. age is pulled in automatically
-# as a dependency step; the passphrase is read from the terminal.
+# Encrypted SSH configs: every ssh/config.d/*.age file in the repo is a
+# host config kept out of public git (bastion IP, work hosts...). age is
+# pulled in automatically as a dependency step; each file is decrypted
+# into ~/.ssh/config.d/ after a per-file prompt (passphrase on the tty).
 deploy_encrypted_ssh_conf() {
-  local enc="$DOTFILES/ssh/config.d/10-bastion.conf.age"
-  local out="$HOME/.ssh/config.d/10-bastion.conf"
-  [[ -f "$enc" ]] || return 0
-  [[ -f "$out" ]] && return 0   # already decrypted on this machine
-  if [[ "$ASSUME_YES" -eq 1 || ! -e /dev/tty ]]; then
-    detail "Encrypted bastion config found; decrypt it manually later:"
-    detail "  age -d -o $out $enc && chmod 600 $out"
-    return 0
-  fi
-  ask "Decrypt the bastion SSH config (age passphrase required)?" || return 0
-  if ! check_cmd age; then
-    if [[ "$IS_TERMUX" -eq 1 ]]; then
-      pkg install -y age || return 1
-    else
-      $SUDO apt-get install -y age || return 1
+  local enc out name
+  for enc in "$DOTFILES"/ssh/config.d/*.age; do
+    [[ -e "$enc" ]] || return 0          # no encrypted configs in the repo
+    name="$(basename "$enc" .age)"
+    out="$HOME/.ssh/config.d/$name"
+    [[ -f "$out" ]] && continue          # already decrypted on this machine
+    if [[ "$ASSUME_YES" -eq 1 || ! -e /dev/tty ]]; then
+      detail "Encrypted config $name found; decrypt it manually later:"
+      detail "  age -d -o $out $enc && chmod 600 $out"
+      continue
     fi
-  fi
-  if age -d -o "$out" "$enc" < /dev/tty; then
-    chmod 600 "$out"
-  else
-    rm -f "$out"
-    fmt_error "Decryption failed (wrong passphrase?); bastion config not deployed."
-  fi
+    ask "Decrypt $name (age passphrase required)?" || continue
+    if ! check_cmd age; then
+      if [[ "$IS_TERMUX" -eq 1 ]]; then
+        pkg install -y age || return 1
+      else
+        $SUDO apt-get install -y age || return 1
+      fi
+    fi
+    if age -d -o "$out" "$enc" < /dev/tty; then
+      chmod 600 "$out"
+    else
+      rm -f "$out"
+      fmt_error "Decryption failed (wrong passphrase?); $name not deployed."
+    fi
+  done
   return 0
 }
 
