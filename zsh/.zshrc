@@ -7,11 +7,11 @@ export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$HOME/go/bin:$PATH"
 # --- zellij: auto-start, one persistent session reattached ---
 # Guards: not inside zellij, not over SSH, real terminal only,
 # and not in dumb terminals or IDE-embedded terminals.
-if command -v zellij >/dev/null 2>&1 \
-  && [ -z "${ZELLIJ:-}" ] && [ -z "${SSH_CONNECTION:-}" ] && [ -t 1 ] \
-  && [ "${TERM:-}" != "dumb" ] && [ "${TERM_PROGRAM:-}" != "vscode" ]; then
-  zellij attach -c main
-fi
+#if command -v zellij >/dev/null 2>&1 \
+#  && [ -z "${ZELLIJ:-}" ] && [ -z "${SSH_CONNECTION:-}" ] && [ -t 1 ] \
+#  && [ "${TERM:-}" != "dumb" ] && [ "${TERM_PROGRAM:-}" != "vscode" ]; then
+#  zellij attach -c main
+#fi
 
 # --- Helix runtime (Termux: the package puts it in opt/, hx cannot find it alone) ---
 if [ -n "${PREFIX:-}" ] && [ -d "$PREFIX/opt/helix/runtime" ]; then
