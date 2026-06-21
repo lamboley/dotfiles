@@ -288,14 +288,16 @@ install_helix_lsp() {
   fi
 
   if ! check_cmd bash-language-server; then
-    if check_cmd npm; then
-      ensure npm install -g bash-language-server
-    elif ask "bash-language-server requires Node.js. Install it?"; then
+    if ! check_cmd npm && ask "bash-language-server requires Node.js. Install it?"; then
       case "$1" in
         pkg)     ensure pkg install -y nodejs ;;
         apt-get) ensure $SUDO apt-get install -y nodejs npm ;;
       esac
-      ensure npm install -g bash-language-server
+    fi
+    # Install global dans ~/.local (sans sudo) ; non-fatal — c'est un confort.
+    if check_cmd npm; then
+      mkdir -p "$HOME/.local/bin" "$HOME/.local/lib"
+      npm install -g --prefix "$HOME/.local" bash-language-server || true
     fi
   fi
 }
@@ -309,7 +311,7 @@ install_termux() {
   ensure pkg update -y
 
   # Prérequis (sans demander).
-  ensure pkg install -y git curl unzip openssh
+  ensure pkg install -y git unzip openssh
 
   # Outils de base — installés sans demander sur tous les OS.
   if any_missing zsh fzf eza zoxide; then
@@ -356,7 +358,7 @@ install_termux() {
 # ==========================================================
 
 install_apt_packages() {
-  ensure $SUDO apt-get install -y curl git unzip
+  ensure $SUDO apt-get install -y git unzip
 }
 
 install_nerd_font_gui() {
