@@ -23,7 +23,7 @@ permissions: {}
 jobs:
   go-licenses:
     name: Go license compliance
-    runs-on: ubuntu-latest
+    runs-on: debian-latest
     permissions:
       contents: read
     steps:
@@ -44,7 +44,7 @@ jobs:
 
   npm-licenses:
     name: npm license compliance
-    runs-on: ubuntu-latest
+    runs-on: debian-latest
     permissions:
       contents: read
     defaults:

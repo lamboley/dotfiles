@@ -5,13 +5,12 @@
 # Run via curl:
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"
 #
-# Usage: install.sh [ubuntu|termux] [-y]  (see --help)
-#
 set -euo pipefail
 
 # ==========================================================
 # Globals
 # ==========================================================
+
 DOTFILES="$HOME/.dotfiles"
 REPO="https://github.com/lamboley/dotfiles.git"
 
@@ -21,9 +20,6 @@ ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64   (sshm)
 ARCH_AARCH64=""  # x86_64 -> x86_64 ; aarch64 -> aarch64 (zellij, helix)
 ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64   (Go toolchain)
 SUDO=""
-TARGET=""        # forced branch: ubuntu | termux (empty = auto-detect)
-ASSUME_YES=0     # -y / --yes: skip all prompts (install everything)
-SUDO_REVOKE=0    # revoke the sudo timestamp at exit if we activated it
 FAILED_STEPS=()  # optional steps that failed (reported at the end)
 TMP_FILES=()     # mktemp files to remove on exit (Ctrl-C safe)
 
@@ -31,25 +27,8 @@ TMP_FILES=()     # mktemp files to remove on exit (Ctrl-C safe)
 cleanup() {
   rm -rf /tmp/helix-extract /tmp/shellcheck-extract /tmp/FiraCode.zip \
     "${TMP_FILES[@]}" 2>/dev/null || true
-  # Drop the sudo timestamp if this run is what activated it (brew-style).
-  if [[ "${SUDO_REVOKE}" -eq 1 ]]; then
-    sudo -k 2>/dev/null || true
-  fi
 }
 trap cleanup EXIT
-
-# ==========================================================
-# Logging in the Kubernetes hack/lib/logging.sh format (no colors):
-#   +++ [MMDD HH:MM:SS] status line
-#       indented continuation (4 spaces, no prefix)
-#   !!! [MMDD HH:MM:SS] error line (stderr)
-# ==========================================================
-ts() { date +"[%m%d %H:%M:%S]"; }
-
-info()      { printf '+++ %s %s\n' "$(ts)" "$*"; }
-# Continuation line under the current step (plain indentation, k8s-style).
-detail()    { printf '    %s\n' "$*"; }
-fmt_error() { printf '!!! %s %s\n' "$(ts)" "$*" >&2; }
 
 # ==========================================================
 # Small utilities
@@ -58,7 +37,7 @@ check_cmd() { command -v "$1" >/dev/null 2>&1; }
 
 need_cmd() {
   if ! check_cmd "$1"; then
-    fmt_error "required command not found: $1"
+    echo "required command not found: $1" >&2
     exit 1
   fi
 }
@@ -66,7 +45,7 @@ need_cmd() {
 # Run a command that must succeed, or abort with a clear message.
 ensure() {
   if ! "$@"; then
-    fmt_error "command failed: $*"
+    echo "command failed: $*" >&2
     exit 1
   fi
 }
@@ -78,45 +57,26 @@ ensure() {
 attempt() {
   local label="$1"; shift
   if ! "$@"; then
-    fmt_error "step failed: $label (continuing)"
     FAILED_STEPS+=("$label")
   fi
   return 0
 }
 
-# Retry a command with exponential backoff (Homebrew-style).
-# $1 = max attempts ; $2... = command
-retry() {
-  local n="$1" pause=2
-  shift
-  while true; do
-    "$@" && return 0
-    n=$((n - 1))
-    [[ "$n" -le 0 ]] && return 1
-    detail "Retrying in ${pause}s: $*"
-    sleep "$pause"
-    pause=$((pause * 2))
-  done
-}
-
 # Print a summary of optional steps that failed, if any.
 report_failures() {
   if [[ "${#FAILED_STEPS[@]}" -gt 0 ]]; then
-    fmt_error "Some optional steps failed: ${FAILED_STEPS[*]}"
-    detail "The rest of the setup completed. You can re-run the script to retry."
+    echo "Some optional steps failed: ${FAILED_STEPS[*]}" >&2
   fi
 }
 
 has_gui() { [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; }
 
 # Yes/no prompt that survives `curl | bash` by reading from /dev/tty.
-# Non-interactive (no tty) or -y flag: returns "yes" so unattended
-# installs are complete.
+# Non-interactive (no tty): returns "yes" so unattended installs are complete.
 ask() {
-  [[ "$ASSUME_YES" -eq 1 ]] && return 0
   [[ ! -t 1 || ! -e /dev/tty ]] && return 0
   local ans
-  printf '+++ %s %s [Y/n] ' "$(ts)" "$1"
+  printf '%s [Y/n] ' "$1"
   read -r ans < /dev/tty || return 0
   [[ "$ans" =~ ^[Nn] ]] && return 1
   return 0
@@ -158,33 +118,7 @@ gh_latest_tag() {
 backup_if_real() {
   if [[ -e "$1" && ! -L "$1" ]]; then
     mv "$1" "$1.pre-dotfiles.bak"
-    detail "Backed up existing $1 to $1.pre-dotfiles.bak"
   fi
-}
-
-# Best-effort SHA256 verification of a downloaded file.
-#   $1 = file ; $2 = checksum URL ; $3 = asset filename (to match in lists)
-# A mismatch is fatal (return 1). A missing/unreachable checksum file is
-# reported but not fatal — not every project publishes one.
-verify_sha256() {
-  local file="$1" sum_url="$2" fname="$3" expected actual
-  check_cmd sha256sum || { detail "sha256sum not found; skipping verification"; return 0; }
-  # Accept both formats: a bare hash, or a "hash  filename" checksum list.
-  expected="$(curl -fsSL "$sum_url" 2>/dev/null \
-    | awk -v f="$fname" 'NF==1 {print $1; exit} index($0, f) {print $1; exit}')"
-  if [[ ! "$expected" =~ ^[0-9a-f]{64}$ ]]; then
-    detail "No usable checksum at $sum_url (skipping verification)"
-    return 0
-  fi
-  actual="$(sha256sum "$file" | awk '{print $1}')"
-  if [[ "$actual" != "$expected" ]]; then
-    fmt_error "SHA256 mismatch for $fname"
-    detail "expected: $expected"
-    detail "actual:   $actual"
-    return 1
-  fi
-  detail "SHA256 verified: $fname"
-  return 0
 }
 
 # ==========================================================
@@ -192,19 +126,15 @@ verify_sha256() {
 #   $1 = download URL
 #   $2 = name of a function handling extraction; it receives the downloaded
 #        file path as $1 and is responsible for installing the binary.
-#   $3 = optional checksum URL (verified best-effort, see verify_sha256)
-# The helper owns the common parts (download + verify + cleanup); the
-# callback owns the layout differences (single binary vs runtime dir, etc.).
+# The helper owns the common parts (download + cleanup); the callback owns
+# the layout differences (single binary vs runtime dir, etc.).
 # ==========================================================
 fetch_and_install() {
-  local url="$1" extract_fn="$2" sum_url="${3:-}"
+  local url="$1" extract_fn="$2"
   local tmp; tmp="$(mktemp)"
   TMP_FILES+=("$tmp")
   if ! curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o "$tmp" "$url"; then
     rm -f "$tmp"; return 1
-  fi
-  if [[ -n "$sum_url" ]]; then
-    verify_sha256 "$tmp" "$sum_url" "$(basename "$url")" || { rm -f "$tmp"; return 1; }
   fi
   "$extract_fn" "$tmp" || { rm -f "$tmp"; return 1; }
   rm -f "$tmp"
@@ -254,7 +184,7 @@ detect_env() {
   case "$ARCH" in
     x86_64)  ARCH_ARM64="x86_64"; ARCH_AARCH64="x86_64"; ARCH_GO="amd64" ;;
     aarch64) ARCH_ARM64="arm64";  ARCH_AARCH64="aarch64"; ARCH_GO="arm64" ;;
-    *) fmt_error "Unsupported architecture: $ARCH (expected x86_64 or aarch64)"; exit 1 ;;
+    *) echo "Unsupported architecture: $ARCH (expected x86_64 or aarch64)" >&2; exit 1 ;;
   esac
 
   if [[ "$IS_TERMUX" -eq 1 || "$(id -u)" -eq 0 ]]; then
@@ -262,8 +192,6 @@ detect_env() {
   else
     need_cmd sudo
     SUDO="sudo"
-    # Remember whether sudo was already active before we run anything.
-    sudo -n -v 2>/dev/null || SUDO_REVOKE=1
   fi
 }
 
@@ -280,15 +208,12 @@ preflight() {
 clone_or_update_repo() {
   if [[ -d "$DOTFILES" ]]; then
     if ! git -C "$DOTFILES" diff --quiet || ! git -C "$DOTFILES" diff --cached --quiet; then
-      fmt_error "Uncommitted changes in $DOTFILES."
-      detail "Commit or stash them, then re-run the script."
+      echo "Uncommitted changes in $DOTFILES." >&2
       exit 1
     fi
-    info "Updating dotfiles repo"
-    ensure retry 5 git -C "$DOTFILES" pull --rebase origin master
+    ensure git -C "$DOTFILES" pull --rebase origin master
   else
-    info "Cloning dotfiles repo"
-    ensure retry 5 git clone --depth=1 "$REPO" "$DOTFILES"
+    ensure git clone --depth=1 "$REPO" "$DOTFILES"
   fi
 }
 
@@ -300,7 +225,7 @@ clone_zsh_plugins() {
   local p
   for p in zsh-autosuggestions zsh-syntax-highlighting zsh-completions; do
     [[ -d "$HOME/.zsh/plugins/$p" ]] || \
-      ensure retry 3 git clone --depth=1 "https://github.com/zsh-users/$p" "$HOME/.zsh/plugins/$p"
+      ensure git clone --depth=1 "https://github.com/zsh-users/$p" "$HOME/.zsh/plugins/$p"
   done
 }
 
@@ -331,7 +256,7 @@ deploy_helix_termux() {
   install_helix_lsp pkg
 }
 
-deploy_helix_ubuntu() {
+deploy_helix_debian() {
   deploy_editor_configs
   install_helix_lsp apt-get
 }
@@ -361,8 +286,7 @@ setup_ssh() {
 
 set_default_shell() {
   if [[ "$(basename "${SHELL:-}")" != "zsh" ]] && check_cmd zsh; then
-    chsh -s "$(command -v zsh)" || \
-      detail "Could not change shell automatically; run 'chsh -s zsh' manually."
+    chsh -s "$(command -v zsh)" || true
   fi
 }
 
@@ -372,11 +296,9 @@ install_helix_lsp() {
   if check_cmd gopls && check_cmd bash-language-server; then
     return 0
   fi
-  info "Installing Helix language servers"
 
   if check_cmd go && ! check_cmd gopls; then
-    go install golang.org/x/tools/gopls@latest \
-      || fmt_error "Failed to install gopls (continuing)"
+    go install golang.org/x/tools/gopls@latest || true
   fi
 
   if ! check_cmd bash-language-server; then
@@ -388,8 +310,6 @@ install_helix_lsp() {
         apt-get) ensure $SUDO apt-get install -y nodejs npm ;;
       esac
       ensure npm install -g bash-language-server
-    else
-      detail "Skipping bash-language-server (Node.js declined)."
     fi
   fi
 }
@@ -428,8 +348,7 @@ install_termux() {
   if ! check_cmd sv-enable && ask "Enable a persistent ssh-agent (termux-services)?"; then
     attempt "termux-services" pkg install -y termux-services
     if check_cmd sv-enable; then
-      sv-enable ssh-agent 2>/dev/null \
-        || detail "Restart Termux, then run: sv-enable ssh-agent"
+      sv-enable ssh-agent 2>/dev/null || true
     fi
   fi
 
@@ -451,14 +370,10 @@ install_termux() {
 }
 
 # ==========================================================
-# UBUNTU / glibc branch
+# DEBIAN / glibc branch
 # ==========================================================
-install_apt_packages() {
-  # Refresh package lists only; upgrading the system is update-packages()'s
-  # job (zsh function), not the installer's.
-  ensure $SUDO apt-get update -y
 
-  # Script prerequisites — installed without asking.
+install_apt_packages() {
   ensure $SUDO apt-get install -y curl git unzip
 }
 
@@ -476,7 +391,7 @@ install_nerd_font_gui() {
 install_helix_glibc() {
   check_cmd hx && return 0
   HELIX_TAG="$(gh_latest_tag helix-editor/helix)"
-  [[ -n "$HELIX_TAG" ]] || { fmt_error "Failed to resolve helix version"; return 1; }
+  [[ -n "$HELIX_TAG" ]] || { echo "Failed to resolve helix version" >&2; return 1; }
   fetch_and_install \
     "https://github.com/helix-editor/helix/releases/download/${HELIX_TAG}/helix-${HELIX_TAG}-${ARCH_AARCH64}-linux.tar.xz" \
     extract_helix
@@ -492,10 +407,9 @@ install_zellij_glibc() {
 install_sshm_glibc() {
   check_cmd sshm && return 0
   local tag; tag="$(gh_latest_tag Gu1llaum-3/sshm)"
-  [[ -n "$tag" ]] || { fmt_error "Failed to resolve sshm version"; return 1; }
+  [[ -n "$tag" ]] || { echo "Failed to resolve sshm version" >&2; return 1; }
   local url="https://github.com/Gu1llaum-3/sshm/releases/download/${tag}/sshm_Linux_${ARCH_ARM64}.tar.gz"
-  EXTRACT_BIN=sshm fetch_and_install "$url" extract_single_bin \
-    "https://github.com/Gu1llaum-3/sshm/releases/download/${tag}/checksums.txt"
+  EXTRACT_BIN=sshm fetch_and_install "$url" extract_single_bin
 }
 
 # Go toolchain, user-local: ~/.local/go (add ~/.local/go/bin to PATH).
@@ -503,7 +417,7 @@ install_go_glibc() {
   check_cmd go && return 0
   local ver
   ver="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)"
-  [[ -n "$ver" ]] || { fmt_error "Failed to resolve Go version"; return 1; }
+  [[ -n "$ver" ]] || { echo "Failed to resolve Go version" >&2; return 1; }
   local file="${ver}.linux-${ARCH_GO}.tar.gz"
   local tmp; tmp="$(mktemp)"
   TMP_FILES+=("$tmp")
@@ -511,8 +425,6 @@ install_go_glibc() {
     "https://go.dev/dl/${file}"; then
     rm -f "$tmp"; return 1
   fi
-  verify_sha256 "$tmp" "https://dl.google.com/go/${file}.sha256" "$file" \
-    || { rm -f "$tmp"; return 1; }
   rm -rf "$HOME/.local/go"
   mkdir -p "$HOME/.local"
   tar -C "$HOME/.local" -xzf "$tmp" || { rm -f "$tmp"; return 1; }
@@ -530,7 +442,7 @@ install_uv_glibc() {
 
 # pre-commit, installed through uv. uv (and python on Termux) is brought
 # in automatically as a dependency step.
-# $1 = "pkg" (Termux) or "glibc" (Ubuntu)
+# $1 = "pkg" (Termux) or "glibc" (Debian)
 install_precommit() {
   check_cmd pre-commit && return 0
   if ! check_cmd uv; then
@@ -547,7 +459,7 @@ install_precommit() {
 install_shellcheck_glibc() {
   check_cmd shellcheck && return 0
   local tag; tag="$(gh_latest_tag koalaman/shellcheck)"
-  [[ -n "$tag" ]] || { fmt_error "Failed to resolve shellcheck version"; return 1; }
+  [[ -n "$tag" ]] || { echo "Failed to resolve shellcheck version" >&2; return 1; }
   SHELLCHECK_TAG="$tag" fetch_and_install \
     "https://github.com/koalaman/shellcheck/releases/download/${tag}/shellcheck-${tag}.linux.${ARCH}.tar.xz" \
     extract_shellcheck
@@ -583,7 +495,7 @@ deploy_alacritty_config() {
   fi
 }
 
-install_ubuntu() {
+install_debian() {
   # Tools are installed user-local; make sure the directory exists.
   mkdir -p "$HOME/.local/bin"
 
@@ -599,7 +511,7 @@ install_ubuntu() {
   fi
   check_cmd zsh && deploy_zsh_config
   brick go "Install golang (~/.local/go)?" - install_go_glibc
-  brick hx "Install helix?" deploy_helix_ubuntu install_helix_glibc
+  brick hx "Install helix?" deploy_helix_debian install_helix_glibc
   brick zellij "Install zellij?" deploy_zellij_config install_zellij_glibc
   brick sshm "Install sshm?" - install_sshm_glibc
   brick starship "Install starship?" - install_starship_glibc
@@ -625,28 +537,7 @@ install_ubuntu() {
 # ==========================================================
 # Main
 # ==========================================================
-usage() {
-  cat <<'EOF'
-Usage: install.sh [target] [-y]
-
-  target     force the install branch instead of auto-detecting:
-               ubuntu   apt-based desktop/server setup
-               termux   Termux/Android setup
-  -y, --yes  answer yes to every prompt (unattended install)
-EOF
-}
-
 main() {
-  local arg
-  for arg in "$@"; do
-    case "$arg" in
-      -y|--yes)          ASSUME_YES=1 ;;
-      ubuntu|termux)      TARGET="$arg" ;;
-      -h|--help)         usage; exit 0 ;;
-      *) fmt_error "unknown option: $arg"; usage; exit 1 ;;
-    esac
-  done
-
   detect_env
 
   # Make user-local install locations visible to this script run itself:
@@ -654,20 +545,13 @@ main() {
   # install_go_glibc just placed in ~/.local/go.
   export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$HOME/go/bin:$PATH"
 
-  # Forced target overrides detection (proot, containers, testing...).
-  case "$TARGET" in
-    termux) IS_TERMUX=1 ;;
-    ubuntu) IS_TERMUX=0 ;;
-  esac
-  [[ -n "$TARGET" ]] && detail "Forced target: $TARGET"
-
   preflight
   clone_or_update_repo
 
   if [[ "$IS_TERMUX" -eq 1 ]]; then
     install_termux
   else
-    install_ubuntu
+    install_debian
   fi
 }
 

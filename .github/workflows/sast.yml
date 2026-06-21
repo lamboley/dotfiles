@@ -14,7 +14,7 @@ permissions: {}
 jobs:
   semgrep:
     name: Semgrep
-    runs-on: ubuntu-latest
+    runs-on: debian-latest
     if: github.repository == 'lamboley/dotfiles'
 
     permissions:

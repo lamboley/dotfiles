@@ -8,7 +8,7 @@ permissions: {}
 jobs:
   whitespace:
     name: Check Whitespace
-    runs-on: ubuntu-latest
+    runs-on: debian-latest
 
     permissions:
       contents: read

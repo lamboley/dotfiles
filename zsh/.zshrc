@@ -1,49 +1,39 @@
+# Configure le PATH
 typeset -U path PATH
 export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$HOME/go/bin:$PATH"
 
-# --- Helix runtime (Termux: the package puts it in opt/, hx cannot find it alone) ---
+# Configure le runtime de `Helix` pour `Termux`
 if [ -n "${PREFIX:-}" ] && [ -d "$PREFIX/opt/helix/runtime" ]; then
   export HELIX_RUNTIME="$PREFIX/opt/helix/runtime"
 fi
 
-# --- zsh-completions: must be in fpath BEFORE compinit ---
+# Charge le plugin `zsh-completions`
 [ -d "$HOME/.zsh/plugins/zsh-completions/src" ] && \
   fpath=("$HOME/.zsh/plugins/zsh-completions/src" $fpath)
 
-# --- Completion ---
+# Configure le plugin `zsh-completions`
 autoload -Uz compinit
-# -C: use the cache without re-auditing permissions on every startup
-compinit -C
+compinit -C # -C: Skip l'audit de sécurité
 zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 
-# --- Personal aliases & functions ---
+# Charge ma config zsh
 [ -f "$HOME/.dotfiles/zsh/functions.zsh" ] && source "$HOME/.dotfiles/zsh/functions.zsh"
 [ -f "$HOME/.dotfiles/zsh/aliases.zsh" ]   && source "$HOME/.dotfiles/zsh/aliases.zsh"
 
-# --- keychain (skipped under proot, where it cannot work reliably) ---
+# Démarre keychain
 if ! grep -qi proot /proc/version 2>/dev/null && command -v keychain >/dev/null 2>&1; then
   eval "$(keychain --eval --quiet --agents ssh id_ed25519)"
 fi
 
-# --- ssh-agent (termux-services; PREFIX guard keeps this Termux-only) ---
+# Configure ssh agent socket pour `Termux`
 if [ -n "${PREFIX:-}" ] && [ -S "$PREFIX/var/run/ssh-agent.socket" ]; then
   export SSH_AUTH_SOCK="$PREFIX/var/run/ssh-agent.socket"
 fi
 
-# --- fzf: keybindings + completion (Ctrl+R, Ctrl+T, Alt+C) ---
-# `fzf --zsh` needs fzf >= 0.48; Ubuntu LTS ships an older one, so fall
-# back to the scripts shipped with the distro package.
+# Charge `fzf`
 if command -v fzf >/dev/null 2>&1; then
-  if fzf --zsh >/dev/null 2>&1; then
-    source <(fzf --zsh)
-  else
-    for f in /usr/share/doc/fzf/examples/key-bindings.zsh \
-             /usr/share/doc/fzf/examples/completion.zsh; do
-      [ -f "$f" ] && source "$f"
-    done
-    unset f
-  fi
+  source <(fzf --zsh)
 fi
 
 # Charge le plugin `zsh-autosuggestions`
@@ -54,7 +44,7 @@ for d in \
   [ -f "$d" ] && { source "$d"; break; }
 done
 
-# Initialise `zoxide`
+# Charge `zoxide`
 command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 
 # Charge le plugin `zsh-syntax-highlighting`
@@ -66,5 +56,5 @@ for d in \
 done
 unset d
 
-# Initialise `starship`
+# Charge `starship`
 command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
