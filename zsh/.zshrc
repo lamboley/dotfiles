@@ -43,7 +43,7 @@ zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 
 # --- keychain (skipped under proot, where it cannot work reliably) ---
 if ! grep -qi proot /proc/version 2>/dev/null && command -v keychain >/dev/null 2>&1; then
-  eval "$(keychain --eval --quiet --agents ssh)"
+  eval "$(keychain --eval --quiet --agents ssh id_ed25519)"
 fi
 
 # --- ssh-agent (termux-services; PREFIX guard keeps this Termux-only) ---

@@ -16,3 +16,8 @@ update-packages() {
 update-dotfiles() {
   git -C "$HOME/.dotfiles" pull --rebase origin master
 }
+
+# Force keychain to load my ssh key
+keychain-add() {
+  eval "$(keychain --eval --agents ssh id_ed25519)"
+}
