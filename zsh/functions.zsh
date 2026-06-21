@@ -8,3 +8,8 @@ update-packages() {
     sudo dnf -y upgrade && sudo dnf -y autoremove
   fi
 }
+
+# Add an SSH key to the keychain agent
+keychain-add() {
+  eval "$(keychain --eval --agents ssh "${1:-id_ed25519}")"
+}

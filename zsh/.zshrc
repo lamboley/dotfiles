@@ -21,9 +21,9 @@ zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 [ -f "$HOME/.dotfiles/zsh/functions.zsh" ] && source "$HOME/.dotfiles/zsh/functions.zsh"
 [ -f "$HOME/.dotfiles/zsh/aliases.zsh" ]   && source "$HOME/.dotfiles/zsh/aliases.zsh"
 
-# Démarre keychain
+# Démarre keychain (les clés se chargent à la demande : keychain-add)
 if ! grep -qi proot /proc/version 2>/dev/null && command -v keychain >/dev/null 2>&1; then
-  eval "$(keychain --eval --quiet --agents ssh id_ed25519)"
+  eval "$(keychain --eval --quiet --agents ssh)"
 fi
 
 # Configure ssh agent socket pour `Termux`
@@ -33,7 +33,15 @@ fi
 
 # Charge `fzf`
 if command -v fzf >/dev/null 2>&1; then
-  source <(fzf --zsh)
+  if fzf --zsh >/dev/null 2>&1; then
+    source <(fzf --zsh)
+  else
+    for f in /usr/share/doc/fzf/examples/key-bindings.zsh \
+             /usr/share/doc/fzf/examples/completion.zsh; do
+      [ -f "$f" ] && source "$f"
+    done
+    unset f
+  fi
 fi
 
 # Charge le plugin `zsh-autosuggestions`
