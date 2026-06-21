@@ -13,15 +13,14 @@ DOTFILES="$HOME/.dotfiles"
 REPO="https://github.com/lamboley/dotfiles.git"
 
 IS_TERMUX=0
-ARCH=""          # uname -m brut : x86_64 / aarch64       (shellcheck, helix, zellij)
+ARCH=""          # uname -m brut : x86_64 / aarch64       (helix, zellij)
 ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64    (sshm)
 ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64    (chaîne Go)
 SUDO=""
-FAILED_STEPS=()  # étapes optionnelles échouées (résumé à la fin)
 TMP_FILES=()     # fichiers mktemp à supprimer en sortie (safe Ctrl-C)
 
 cleanup() {
-  rm -rf /tmp/helix-extract /tmp/shellcheck-extract /tmp/FiraCode.zip \
+  rm -rf /tmp/helix-extract /tmp/FiraCode.zip \
     "${TMP_FILES[@]}" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -44,23 +43,6 @@ ensure() {
   if ! "$@"; then
     echo "command failed: $*" >&2
     exit 1
-  fi
-}
-
-# Étape optionnelle : note l'échec, continue (résumé à la fin).
-# $1 = label ; $2... = commande
-attempt() {
-  local label="$1"; shift
-  if ! "$@"; then
-    FAILED_STEPS+=("$label")
-  fi
-  return 0
-}
-
-# Affiche les étapes optionnelles échouées.
-report_failures() {
-  if [[ "${#FAILED_STEPS[@]}" -gt 0 ]]; then
-    echo "Some optional steps failed: ${FAILED_STEPS[*]}" >&2
   fi
 }
 
@@ -89,7 +71,7 @@ brick() {
   local cmd="$1" prompt="$2" deploy_fn="$3"; shift 3
   if ! check_cmd "$cmd"; then
     [[ "$prompt" == "-" ]] || ask "$prompt" || return 0
-    attempt "$cmd" "$@"
+    "$@" || true
   fi
   if check_cmd "$cmd" && [[ "$deploy_fn" != "-" ]]; then
     "$deploy_fn"
@@ -135,16 +117,6 @@ fetch_and_install() {
 extract_single_bin() {
   mkdir -p "$HOME/.local/bin"
   tar -C "$HOME/.local/bin" -xzf "$1" "$EXTRACT_BIN"
-}
-
-extract_shellcheck() {
-  local dir="/tmp/shellcheck-extract"
-  rm -rf "$dir"; mkdir -p "$dir"
-  tar -C "$dir" -xJf "$1" || return 1
-  mkdir -p "$HOME/.local/bin"
-  install -m 755 "$dir/shellcheck-${SHELLCHECK_TAG}/shellcheck" \
-    "$HOME/.local/bin/shellcheck" || return 1
-  rm -rf "$dir"
 }
 
 extract_helix() {
@@ -315,7 +287,7 @@ install_termux() {
 
   # Outils de base — installés sans demander sur tous les OS.
   if any_missing zsh fzf eza zoxide; then
-    attempt "zsh + tools" pkg install -y zsh fzf eza zoxide
+    pkg install -y zsh fzf eza zoxide || true
   fi
   check_cmd zsh && deploy_zsh_config
   brick zellij - deploy_zellij_config pkg install -y zellij
@@ -324,24 +296,21 @@ install_termux() {
   brick hx - deploy_helix_termux pkg install -y helix
   if check_cmd go; then
     brick sshm - - go install github.com/Gu1llaum-3/sshm@latest
-    brick golangci-lint "Install golangci-lint?" - install_golangci
   fi
-  brick shellcheck "Install shellcheck?" - pkg install -y shellcheck
-  brick pre-commit "Install pre-commit (via uv)?" - install_precommit pkg
 
   # ssh-agent persistant via termux-services.
   if ! check_cmd sv-enable && ask "Enable a persistent ssh-agent (termux-services)?"; then
-    attempt "termux-services" pkg install -y termux-services
+    pkg install -y termux-services || true
     if check_cmd sv-enable; then
       sv-enable ssh-agent 2>/dev/null || true
     fi
   fi
 
   # Nerd Font = réglage app Termux (~/.termux/font.ttf).
-  if [[ ! -f "$HOME/.termux/font.ttf" ]] && ask "Install the Nerd Font?"; then
+  if [[ ! -f "$HOME/.termux/font.ttf" ]]; then
     mkdir -p "$HOME/.termux"
-    attempt "Nerd Font" curl -fL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
-      "https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFont-Regular.ttf"
+    curl -fL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
+      "https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFont-Regular.ttf" || true
     if [[ -f "$HOME/.termux/font.ttf" ]] && check_cmd termux-reload-settings; then
       termux-reload-settings
     fi
@@ -349,8 +318,6 @@ install_termux() {
 
   # ssh est un prérequis, donc sa config client durcie se déploie toujours.
   setup_ssh
-
-  report_failures
 }
 
 # ==========================================================
@@ -413,41 +380,6 @@ install_go_glibc() {
   rm -f "$tmp"
 }
 
-# uv (Astral) : véhicule d'install pour pre-commit.
-# UV_NO_MODIFY_PATH : ne touche pas aux rc — .zshrc est un lien vers le dépôt.
-install_uv_glibc() {
-  check_cmd uv && return 0
-  curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
-}
-
-# pre-commit via uv (tiré au besoin). $1 = pkg (Termux) | glibc (Debian).
-install_precommit() {
-  check_cmd pre-commit && return 0
-  if ! check_cmd uv; then
-    case "$1" in
-      pkg)   pkg install -y uv python || return 1 ;;
-      glibc) install_uv_glibc || return 1 ;;
-    esac
-  fi
-  uv tool install pre-commit
-}
-
-# Binaire statique ShellCheck -> ~/.local/bin (l'asset utilise uname -m brut = $ARCH).
-install_shellcheck_glibc() {
-  check_cmd shellcheck && return 0
-  local tag; tag="$(need_tag koalaman/shellcheck shellcheck)" || return 1
-  SHELLCHECK_TAG="$tag" fetch_and_install \
-    "https://github.com/koalaman/shellcheck/releases/download/${tag}/shellcheck-${tag}.linux.${ARCH}.tar.xz" \
-    extract_shellcheck
-}
-
-# golangci-lint via son installeur officiel (recommandé plutôt que `go install`).
-install_golangci() {
-  check_cmd golangci-lint && return 0
-  curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-    | sh -s -- -b "$HOME/.local/bin"
-}
-
 install_starship_glibc() {
   check_cmd starship && return 0
   mkdir -p "$HOME/.local/bin"
@@ -478,7 +410,7 @@ install_debian() {
 
   # Outils de base — sans demander. $SUDO non quoté : disparaît si vide.
   if any_missing zsh fzf eza zoxide keychain; then
-    attempt "zsh + tools" $SUDO apt-get install -y zsh fzf eza zoxide keychain
+    $SUDO apt-get install -y zsh fzf eza zoxide keychain || true
   fi
   check_cmd zsh && deploy_zsh_config
   brick go - - install_go_glibc
@@ -486,33 +418,21 @@ install_debian() {
   brick zellij - deploy_zellij_config install_zellij_glibc
   brick sshm - - install_sshm_glibc
   brick starship - - install_starship_glibc
-  brick pre-commit "Install pre-commit (via uv)?" - install_precommit glibc
-  brick shellcheck "Install shellcheck?" - install_shellcheck_glibc
-  if check_cmd go; then
-    brick golangci-lint "Install golangci-lint?" - install_golangci
-  fi
   if has_gui; then
     brick alacritty "Install alacritty?" deploy_alacritty_config install_alacritty_gui
-    if ask "Install the Nerd Font?"; then
-      attempt "Nerd Font" install_nerd_font_gui
-    fi
+    install_nerd_font_gui || true
   fi
 
-  # ssh est un prérequis, donc sa config client durcie se déploie toujours.
   setup_ssh
-
-  report_failures
 }
 
 # ==========================================================
-# Point d'entrée
+# Main
 # ==========================================================
 
 main() {
   detect_env
 
-  # Rend visibles dans ce run les emplacements fraîchement installés (pour que
-  # `go install` trouve la chaîne go placée dans ~/.local/go, etc.).
   export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$HOME/go/bin:$PATH"
 
   preflight
