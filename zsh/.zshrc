@@ -1,30 +1,10 @@
-# ~/.zshrc — no framework, prompt via starship
-
-# --- PATH (typeset -U deduplicates entries across nested shells) ---
 typeset -U path PATH
 export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$HOME/go/bin:$PATH"
-
-# --- zellij: auto-start, one persistent session reattached ---
-# Guards: not inside zellij, not over SSH, real terminal only,
-# and not in dumb terminals or IDE-embedded terminals.
-#if command -v zellij >/dev/null 2>&1 \
-#  && [ -z "${ZELLIJ:-}" ] && [ -z "${SSH_CONNECTION:-}" ] && [ -t 1 ] \
-#  && [ "${TERM:-}" != "dumb" ] && [ "${TERM_PROGRAM:-}" != "vscode" ]; then
-#  zellij attach -c main
-#fi
 
 # --- Helix runtime (Termux: the package puts it in opt/, hx cannot find it alone) ---
 if [ -n "${PREFIX:-}" ] && [ -d "$PREFIX/opt/helix/runtime" ]; then
   export HELIX_RUNTIME="$PREFIX/opt/helix/runtime"
 fi
-
-# --- History ---
-HISTFILE="$HOME/.zsh_history"
-HISTSIZE=10000
-SAVEHIST=10000
-setopt HIST_IGNORE_ALL_DUPS
-setopt SHARE_HISTORY
-setopt INC_APPEND_HISTORY
 
 # --- zsh-completions: must be in fpath BEFORE compinit ---
 [ -d "$HOME/.zsh/plugins/zsh-completions/src" ] && \
@@ -66,7 +46,7 @@ if command -v fzf >/dev/null 2>&1; then
   fi
 fi
 
-# --- Plugins ---
+# Charge le plugin `zsh-autosuggestions`
 for d in \
   "${PREFIX:-}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
   "/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
@@ -74,10 +54,10 @@ for d in \
   [ -f "$d" ] && { source "$d"; break; }
 done
 
-# --- zoxide: smarter cd (z / zi) — after compinit, before syntax-highlighting ---
+# Initialise `zoxide`
 command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 
-# zsh-syntax-highlighting MUST be sourced last
+# Charge le plugin `zsh-syntax-highlighting`
 for d in \
   "${PREFIX:-}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
   "/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
@@ -86,5 +66,5 @@ for d in \
 done
 unset d
 
-# --- Prompt (starship, at the very bottom) ---
+# Initialise `starship`
 command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"

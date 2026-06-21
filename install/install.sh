@@ -1,14 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Dotfiles installer for lamboley/dotfiles.
 #
 # Run via curl:
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"
-# Or download then run (recommended for interactive prompts):
-#   curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh -o install.sh
-#   bash install.sh
 #
-# Usage: install.sh [ubuntu|termux|rhel] [-y]  (see --help)
+# Usage: install.sh [ubuntu|termux] [-y]  (see --help)
 #
 set -euo pipefail
 
@@ -19,13 +16,12 @@ DOTFILES="$HOME/.dotfiles"
 REPO="https://github.com/lamboley/dotfiles.git"
 
 IS_TERMUX=0
-IS_RHEL=0
 ARCH=""
 ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64   (sshm)
 ARCH_AARCH64=""  # x86_64 -> x86_64 ; aarch64 -> aarch64 (zellij, helix)
 ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64   (Go toolchain)
 SUDO=""
-TARGET=""        # forced branch: ubuntu | termux | rhel (empty = auto-detect)
+TARGET=""        # forced branch: ubuntu | termux (empty = auto-detect)
 ASSUME_YES=0     # -y / --yes: skip all prompts (install everything)
 SUDO_REVOKE=0    # revoke the sudo timestamp at exit if we activated it
 FAILED_STEPS=()  # optional steps that failed (reported at the end)
@@ -253,7 +249,6 @@ extract_helix() {
 # ==========================================================
 detect_env() {
   [[ -n "${TERMUX_VERSION:-}" ]] && IS_TERMUX=1
-  command -v dnf >/dev/null 2>&1 && IS_RHEL=1
 
   ARCH="$(uname -m)"
   case "$ARCH" in
@@ -346,40 +341,6 @@ deploy_zellij_config() {
   ln -sf "$DOTFILES/zellij/config.kdl" "$HOME/.config/zellij/config.kdl"
 }
 
-# Encrypted SSH configs: every ssh/config.d/*.age file in the repo is a
-# host config kept out of public git (bastion IP, work hosts...). age is
-# pulled in automatically as a dependency step; each file is decrypted
-# into ~/.ssh/config.d/ after a per-file prompt (passphrase on the tty).
-deploy_encrypted_ssh_conf() {
-  local enc out name
-  for enc in "$DOTFILES"/ssh/config.d/*.age; do
-    [[ -e "$enc" ]] || return 0          # no encrypted configs in the repo
-    name="$(basename "$enc" .age)"
-    out="$HOME/.ssh/config.d/$name"
-    [[ -f "$out" ]] && continue          # already decrypted on this machine
-    if [[ "$ASSUME_YES" -eq 1 || ! -e /dev/tty ]]; then
-      detail "Encrypted config $name found; decrypt it manually later:"
-      detail "  age -d -o $out $enc && chmod 600 $out"
-      continue
-    fi
-    ask "Decrypt $name (age passphrase required)?" || continue
-    if ! check_cmd age; then
-      if [[ "$IS_TERMUX" -eq 1 ]]; then
-        pkg install -y age || return 1
-      else
-        $SUDO apt-get install -y age || return 1
-      fi
-    fi
-    if age -d -o "$out" "$enc" < /dev/tty; then
-      chmod 600 "$out"
-    else
-      rm -f "$out"
-      fmt_error "Decryption failed (wrong passphrase?); $name not deployed."
-    fi
-  done
-  return 0
-}
-
 setup_ssh() {
   mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 700 "$HOME/.ssh" "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
@@ -396,8 +357,6 @@ setup_ssh() {
 
   find "$HOME/.ssh" -maxdepth 1 -type f -name 'id_*' ! -name '*.pub' \
     -exec chmod 600 {} \; 2>/dev/null || true
-
-  deploy_encrypted_ssh_conf
 }
 
 set_default_shell() {
@@ -664,48 +623,6 @@ install_ubuntu() {
 }
 
 # ==========================================================
-# ROCKY / RHEL-family branch (SSH bastion: hardening only)
-# No zsh, no tools — this host is only a ProxyJump relay.
-# Deploys ssh/sshd_hardening.conf into /etc/ssh/sshd_config.d/
-# with a lockout guard and config validation before restart.
-# ==========================================================
-bootstrap_rhel() {
-  check_cmd git || ensure $SUDO dnf -y install git
-}
-
-install_rhel_bastion() {
-  if ! ask "Apply sshd hardening (keys only, no root)?"; then
-    detail "sshd hardening skipped."
-    report_failures
-    return 0
-  fi
-
-  # Lockout guard: never disable password auth without a working key.
-  if [[ ! -s "$HOME/.ssh/authorized_keys" ]]; then
-    fmt_error "No ~/.ssh/authorized_keys found."
-    fmt_error "Add your public key first or you will lock yourself out."
-    exit 1
-  fi
-
-  # Copy (not symlink): /etc must not depend on a file in \$HOME.
-  ensure $SUDO install -m 600 -o root -g root \
-    "$DOTFILES/ssh/sshd_hardening.conf" \
-    /etc/ssh/sshd_config.d/00-hardening.conf
-
-  # Validate before restarting; roll back if the config is broken.
-  if $SUDO sshd -t; then
-    ensure $SUDO systemctl restart sshd
-    info "sshd hardened. Test a NEW connection before closing this one."
-  else
-    $SUDO rm -f /etc/ssh/sshd_config.d/00-hardening.conf
-    fmt_error "sshd config validation failed — hardening removed, sshd untouched."
-    exit 1
-  fi
-
-  report_failures
-}
-
-# ==========================================================
 # Main
 # ==========================================================
 usage() {
@@ -715,7 +632,6 @@ Usage: install.sh [target] [-y]
   target     force the install branch instead of auto-detecting:
                ubuntu   apt-based desktop/server setup
                termux   Termux/Android setup
-               rhel     Rocky/RHEL bastion (sshd hardening)
   -y, --yes  answer yes to every prompt (unattended install)
 EOF
 }
@@ -725,7 +641,7 @@ main() {
   for arg in "$@"; do
     case "$arg" in
       -y|--yes)          ASSUME_YES=1 ;;
-      ubuntu|termux|rhel) TARGET="$arg" ;;
+      ubuntu|termux)      TARGET="$arg" ;;
       -h|--help)         usage; exit 0 ;;
       *) fmt_error "unknown option: $arg"; usage; exit 1 ;;
     esac
@@ -740,20 +656,16 @@ main() {
 
   # Forced target overrides detection (proot, containers, testing...).
   case "$TARGET" in
-    termux) IS_TERMUX=1; IS_RHEL=0 ;;
-    rhel)   IS_TERMUX=0; IS_RHEL=1 ;;
-    ubuntu) IS_TERMUX=0; IS_RHEL=0 ;;
+    termux) IS_TERMUX=1 ;;
+    ubuntu) IS_TERMUX=0 ;;
   esac
   [[ -n "$TARGET" ]] && detail "Forced target: $TARGET"
 
-  [[ "$IS_RHEL" -eq 1 ]] && bootstrap_rhel
   preflight
   clone_or_update_repo
 
   if [[ "$IS_TERMUX" -eq 1 ]]; then
     install_termux
-  elif [[ "$IS_RHEL" -eq 1 ]]; then
-    install_rhel_bastion
   else
     install_ubuntu
   fi

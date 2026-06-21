@@ -1,4 +1,2 @@
-# Managed by dotfiles — https://github.com/lamboley/dotfiles
-
 Include config.d/*.conf
 Include hardening.conf

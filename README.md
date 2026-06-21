@@ -2,21 +2,20 @@
 
 # Dotfiles
 
-This repository contains my dotfiles.
-This will install and configure the following:
+Ce projet contient mes dotfiles.
+Le fichier [install.sh](https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh) va faire les choses suivantes:
 
-- Zsh
-- Helix
-- FiraCode Nerd Font
-- Alacritty
-- Zellij
-- Public SSH client config + sshm
+- Le shell `Zsh` et deux plugins.
+- L'éditeur `Helix`.
+- La font `FiraCode Nerd Font`.
+- Le terminal `Alacritty`.
+- Le multiplexeur `Zellij`.
+- Le programme Golang `sshm` et une configure ssh hardened.
 
 ## Installation
 
-> ˋbashˋ is required.
+> ˋbashˋ est necessaire.
 
 | Method    | Command                                                                                           |
 | :-------- | :------------------------------------------------------------------------------------------------ |
 | **curl**  | `bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"` |
-| **wget**  | `bash -c "$(wget -O- https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"`   |
