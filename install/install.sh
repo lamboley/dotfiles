@@ -1,29 +1,25 @@
 #!/usr/bin/env bash
 #
-# Dotfiles installer for lamboley/dotfiles.
-#
-# Run via curl:
+# Lancer via curl :
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"
-#
+
 set -euo pipefail
 
 # ==========================================================
-# Globals
+# Variables globales
 # ==========================================================
 
 DOTFILES="$HOME/.dotfiles"
 REPO="https://github.com/lamboley/dotfiles.git"
 
 IS_TERMUX=0
-ARCH=""
-ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64   (sshm)
-ARCH_AARCH64=""  # x86_64 -> x86_64 ; aarch64 -> aarch64 (zellij, helix)
-ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64   (Go toolchain)
+ARCH=""          # uname -m brut : x86_64 / aarch64       (shellcheck, helix, zellij)
+ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64    (sshm)
+ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64    (chaîne Go)
 SUDO=""
-FAILED_STEPS=()  # optional steps that failed (reported at the end)
-TMP_FILES=()     # mktemp files to remove on exit (Ctrl-C safe)
+FAILED_STEPS=()  # étapes optionnelles échouées (résumé à la fin)
+TMP_FILES=()     # fichiers mktemp à supprimer en sortie (safe Ctrl-C)
 
-# Clean up any leftover temp files on exit, even if the script dies mid-way.
 cleanup() {
   rm -rf /tmp/helix-extract /tmp/shellcheck-extract /tmp/FiraCode.zip \
     "${TMP_FILES[@]}" 2>/dev/null || true
@@ -31,8 +27,9 @@ cleanup() {
 trap cleanup EXIT
 
 # ==========================================================
-# Small utilities
+# Utilitaires
 # ==========================================================
+
 check_cmd() { command -v "$1" >/dev/null 2>&1; }
 
 need_cmd() {
@@ -42,7 +39,7 @@ need_cmd() {
   fi
 }
 
-# Run a command that must succeed, or abort with a clear message.
+# Lance une commande ; abandonne en cas d'échec.
 ensure() {
   if ! "$@"; then
     echo "command failed: $*" >&2
@@ -50,10 +47,8 @@ ensure() {
   fi
 }
 
-# Run an OPTIONAL step: if it fails, record it and keep going instead of
-# aborting. A summary of failures is printed at the end. Use this for
-# individual tools where one failure shouldn't sink the whole install.
-# $1 = human label ; $2... = command
+# Étape optionnelle : note l'échec, continue (résumé à la fin).
+# $1 = label ; $2... = commande
 attempt() {
   local label="$1"; shift
   if ! "$@"; then
@@ -62,7 +57,7 @@ attempt() {
   return 0
 }
 
-# Print a summary of optional steps that failed, if any.
+# Affiche les étapes optionnelles échouées.
 report_failures() {
   if [[ "${#FAILED_STEPS[@]}" -gt 0 ]]; then
     echo "Some optional steps failed: ${FAILED_STEPS[*]}" >&2
@@ -71,8 +66,7 @@ report_failures() {
 
 has_gui() { [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; }
 
-# Yes/no prompt that survives `curl | bash` by reading from /dev/tty.
-# Non-interactive (no tty): returns "yes" so unattended installs are complete.
+# Prompt oui/non via /dev/tty (survit à `curl | bash`). Pas de tty -> oui.
 ask() {
   [[ ! -t 1 || ! -e /dev/tty ]] && return 0
   local ans
@@ -82,24 +76,19 @@ ask() {
   return 0
 }
 
-# True if at least one of the given commands is missing.
+# Vrai si au moins une des commandes manque.
 any_missing() {
   local c
   for c in "$@"; do check_cmd "$c" || return 0; done
   return 1
 }
 
-# One "brick" = a tool and its config, handled together:
-#   - tool already present  -> (re)deploy its config, no question asked
-#   - tool absent           -> ask; on yes, install then deploy its config
-#   - user declines         -> skip both (config still syncs if the
-#     primary tool exists)
-# $1 = command to check ; $2 = prompt ; $3 = deploy function ("-" for none)
-# $4... = install command
+# Un outil + sa config : présent -> redéploie la config ; absent -> installe puis déploie.
+# $1 = commande ; $2 = prompt ("-" = sans demander) ; $3 = fn déploiement ("-" = aucune) ; $4... = commande d'install
 brick() {
   local cmd="$1" prompt="$2" deploy_fn="$3"; shift 3
   if ! check_cmd "$cmd"; then
-    ask "$prompt" || return 0
+    [[ "$prompt" == "-" ]] || ask "$prompt" || return 0
     attempt "$cmd" "$@"
   fi
   if check_cmd "$cmd" && [[ "$deploy_fn" != "-" ]]; then
@@ -108,27 +97,28 @@ brick() {
   return 0
 }
 
-# Resolve a repo's latest release tag WITHOUT the GitHub API (no rate limit).
+# Dernier tag de release sans l'API GitHub (pas de rate-limit).
 gh_latest_tag() {
   curl -fsSLI -o /dev/null -w '%{url_effective}' \
     "https://github.com/$1/releases/latest" 2>/dev/null | sed -n 's#.*/tag/##p'
 }
 
-# Back up a real file (not a symlink) before replacing it with our symlink.
+# Dernier tag ou échec explicite. $1 = owner/repo ; $2 = nom de l'outil. Affiche le tag.
+need_tag() {
+  local tag; tag="$(gh_latest_tag "$1")"
+  [[ -n "$tag" ]] || { echo "Failed to resolve $2 version" >&2; return 1; }
+  echo "$tag"
+}
+
+# Sauvegarde un vrai fichier (pas un lien) avant de le remplacer par un lien.
 backup_if_real() {
   if [[ -e "$1" && ! -L "$1" ]]; then
     mv "$1" "$1.pre-dotfiles.bak"
   fi
 }
 
-# ==========================================================
-# GitHub binary installer with a pluggable extraction step.
-#   $1 = download URL
-#   $2 = name of a function handling extraction; it receives the downloaded
-#        file path as $1 and is responsible for installing the binary.
-# The helper owns the common parts (download + cleanup); the callback owns
-# the layout differences (single binary vs runtime dir, etc.).
-# ==========================================================
+# Télécharge un binaire GitHub, puis lance $2 pour l'extraire/installer.
+# $1 = URL ; $2 = callback d'extraction (reçoit le chemin du fichier temp).
 fetch_and_install() {
   local url="$1" extract_fn="$2"
   local tmp; tmp="$(mktemp)"
@@ -140,11 +130,8 @@ fetch_and_install() {
   rm -f "$tmp"
 }
 
-# Extraction callbacks ------------------------------------------------------
-# All tools are installed user-local in ~/.local/bin (must be in PATH).
-# Simple case: a .tar.gz containing a single binary.
-# Uses $EXTRACT_BIN (set by caller) as the binary name inside the tarball.
-# Callbacks return non-zero on failure so attempt() can record it.
+# Callbacks d'extraction : installent dans ~/.local/bin, retour non-nul si échec.
+# extract_single_bin : un binaire depuis un .tar.gz, nommé par $EXTRACT_BIN.
 extract_single_bin() {
   mkdir -p "$HOME/.local/bin"
   tar -C "$HOME/.local/bin" -xzf "$1" "$EXTRACT_BIN"
@@ -161,11 +148,11 @@ extract_shellcheck() {
 }
 
 extract_helix() {
-  # helix ships hx + a runtime dir that must live where hx looks for it.
+  # helix a besoin de hx + son dossier runtime ensemble.
   local dir="/tmp/helix-extract"
   rm -rf "$dir"; mkdir -p "$dir"
   tar -C "$dir" -xJf "$1" || return 1
-  local hxdir="$dir/helix-${HELIX_TAG}-${ARCH_AARCH64}-linux"
+  local hxdir="$dir/helix-${HELIX_TAG}-${ARCH}-linux"
   mkdir -p "$HOME/.local/bin"
   install -m 755 "$hxdir/hx" "$HOME/.local/bin/hx" || return 1
   mkdir -p "$HOME/.config/helix"
@@ -175,15 +162,16 @@ extract_helix() {
 }
 
 # ==========================================================
-# Detection / preflight
+# Détection / preflight
 # ==========================================================
+
 detect_env() {
   [[ -n "${TERMUX_VERSION:-}" ]] && IS_TERMUX=1
 
   ARCH="$(uname -m)"
   case "$ARCH" in
-    x86_64)  ARCH_ARM64="x86_64"; ARCH_AARCH64="x86_64"; ARCH_GO="amd64" ;;
-    aarch64) ARCH_ARM64="arm64";  ARCH_AARCH64="aarch64"; ARCH_GO="arm64" ;;
+    x86_64)  ARCH_ARM64="x86_64"; ARCH_GO="amd64" ;;
+    aarch64) ARCH_ARM64="arm64";  ARCH_GO="arm64" ;;
     *) echo "Unsupported architecture: $ARCH (expected x86_64 or aarch64)" >&2; exit 1 ;;
   esac
 
@@ -203,8 +191,9 @@ preflight() {
 }
 
 # ==========================================================
-# Repo
+# Dépôt
 # ==========================================================
+
 clone_or_update_repo() {
   if [[ -d "$DOTFILES" ]]; then
     if ! git -C "$DOTFILES" diff --quiet || ! git -C "$DOTFILES" diff --cached --quiet; then
@@ -218,8 +207,9 @@ clone_or_update_repo() {
 }
 
 # ==========================================================
-# Shared steps
+# Étapes partagées
 # ==========================================================
+
 clone_zsh_plugins() {
   mkdir -p "$HOME/.zsh/plugins"
   local p
@@ -229,10 +219,8 @@ clone_zsh_plugins() {
   done
 }
 
-# Symlink each file/dir from the repo's helix/ folder into ~/.config/helix/.
-# The directory itself stays real so the helix runtime/ (installed by
-# extract_helix or pkg) can live alongside without polluting the repo.
-# -n: replace an existing symlink-to-dir instead of descending into it.
+# Lie helix/* du dépôt dans ~/.config/helix/ (le dossier reste réel pour que
+# runtime/ cohabite). -n : remplace un lien-vers-dossier, ne descend pas dedans.
 deploy_editor_configs() {
   mkdir -p "$HOME/.config/helix"
   local f
@@ -241,7 +229,7 @@ deploy_editor_configs() {
   done
 }
 
-# zsh config: plugins, .zshrc symlink, default shell.
+# Config zsh : plugins, lien .zshrc, shell par défaut.
 deploy_zsh_config() {
   clone_zsh_plugins
   backup_if_real "$HOME/.zshrc"
@@ -249,8 +237,7 @@ deploy_zsh_config() {
   set_default_shell
 }
 
-# Helix "config" includes its language servers (gopls if Go is present;
-# bash-ls keeps its internal Node.js prompt since that is a heavy extra).
+# Déploie la config helix + ses language servers (gopls, bash-ls).
 deploy_helix_termux() {
   deploy_editor_configs
   install_helix_lsp pkg
@@ -290,8 +277,7 @@ set_default_shell() {
   fi
 }
 
-# Language servers for Helix (Go + Bash).
-# $1 = package manager for nodejs ("pkg" or "apt-get").
+# Language servers Helix (Go + Bash). $1 = gestionnaire de paquets node (pkg|apt-get).
 install_helix_lsp() {
   if check_cmd gopls && check_cmd bash-language-server; then
     return 0
@@ -315,36 +301,33 @@ install_helix_lsp() {
 }
 
 # ==========================================================
-# TERMUX branch
+# Branche TERMUX
 # ==========================================================
+
 install_termux() {
-  # Refresh package lists only; upgrading the system is update-packages()'s
-  # job (zsh function), not the installer's.
+  # Rafraîchit seulement les listes de paquets (l'upgrade système = update-packages()).
   ensure pkg update -y
 
-  # Script prerequisites — installed without asking.
+  # Prérequis (sans demander).
   ensure pkg install -y git curl unzip openssh
 
-  # Bricks: tool + its config, installed and deployed immediately.
-  # The zsh group checks every member, not just zsh itself.
+  # Outils de base — installés sans demander sur tous les OS.
   if any_missing zsh fzf eza zoxide; then
-    if ask "Install zsh and its tools (fzf, eza, zoxide)?"; then
-      attempt "zsh + tools" pkg install -y zsh fzf eza zoxide
-    fi
+    attempt "zsh + tools" pkg install -y zsh fzf eza zoxide
   fi
   check_cmd zsh && deploy_zsh_config
-  brick zellij "Install zellij?" deploy_zellij_config pkg install -y zellij
-  brick starship "Install starship?" - pkg install -y starship
-  brick go "Install golang?" - pkg install -y golang
-  brick hx "Install helix?" deploy_helix_termux pkg install -y helix
+  brick zellij - deploy_zellij_config pkg install -y zellij
+  brick starship - - pkg install -y starship
+  brick go - - pkg install -y golang
+  brick hx - deploy_helix_termux pkg install -y helix
   if check_cmd go; then
-    brick sshm "Install sshm?" - go install github.com/Gu1llaum-3/sshm@latest
+    brick sshm - - go install github.com/Gu1llaum-3/sshm@latest
     brick golangci-lint "Install golangci-lint?" - install_golangci
   fi
   brick shellcheck "Install shellcheck?" - pkg install -y shellcheck
   brick pre-commit "Install pre-commit (via uv)?" - install_precommit pkg
 
-  # Persistent ssh-agent via termux-services (pairs with AddKeysToAgent).
+  # ssh-agent persistant via termux-services.
   if ! check_cmd sv-enable && ask "Enable a persistent ssh-agent (termux-services)?"; then
     attempt "termux-services" pkg install -y termux-services
     if check_cmd sv-enable; then
@@ -352,7 +335,7 @@ install_termux() {
     fi
   fi
 
-  # Nerd Font: on Termux the font is an APP setting (~/.termux/font.ttf)
+  # Nerd Font = réglage app Termux (~/.termux/font.ttf).
   if [[ ! -f "$HOME/.termux/font.ttf" ]] && ask "Install the Nerd Font?"; then
     mkdir -p "$HOME/.termux"
     attempt "Nerd Font" curl -fL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
@@ -362,15 +345,14 @@ install_termux() {
     fi
   fi
 
-  # ssh is a prerequisite, so its hardened client config deploys
-  # automatically (brick rule: tool present -> config deployed).
+  # ssh est un prérequis, donc sa config client durcie se déploie toujours.
   setup_ssh
 
   report_failures
 }
 
 # ==========================================================
-# DEBIAN / glibc branch
+# Branche DEBIAN / glibc
 # ==========================================================
 
 install_apt_packages() {
@@ -390,29 +372,27 @@ install_nerd_font_gui() {
 
 install_helix_glibc() {
   check_cmd hx && return 0
-  HELIX_TAG="$(gh_latest_tag helix-editor/helix)"
-  [[ -n "$HELIX_TAG" ]] || { echo "Failed to resolve helix version" >&2; return 1; }
+  HELIX_TAG="$(need_tag helix-editor/helix helix)" || return 1
   fetch_and_install \
-    "https://github.com/helix-editor/helix/releases/download/${HELIX_TAG}/helix-${HELIX_TAG}-${ARCH_AARCH64}-linux.tar.xz" \
+    "https://github.com/helix-editor/helix/releases/download/${HELIX_TAG}/helix-${HELIX_TAG}-${ARCH}-linux.tar.xz" \
     extract_helix
 }
 
 install_zellij_glibc() {
   check_cmd zellij && return 0
   EXTRACT_BIN=zellij fetch_and_install \
-    "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${ARCH_AARCH64}-unknown-linux-musl.tar.gz" \
+    "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${ARCH}-unknown-linux-musl.tar.gz" \
     extract_single_bin
 }
 
 install_sshm_glibc() {
   check_cmd sshm && return 0
-  local tag; tag="$(gh_latest_tag Gu1llaum-3/sshm)"
-  [[ -n "$tag" ]] || { echo "Failed to resolve sshm version" >&2; return 1; }
+  local tag; tag="$(need_tag Gu1llaum-3/sshm sshm)" || return 1
   local url="https://github.com/Gu1llaum-3/sshm/releases/download/${tag}/sshm_Linux_${ARCH_ARM64}.tar.gz"
   EXTRACT_BIN=sshm fetch_and_install "$url" extract_single_bin
 }
 
-# Go toolchain, user-local: ~/.local/go (add ~/.local/go/bin to PATH).
+# Chaîne Go -> ~/.local/go (besoin de ~/.local/go/bin dans le PATH).
 install_go_glibc() {
   check_cmd go && return 0
   local ver
@@ -431,18 +411,14 @@ install_go_glibc() {
   rm -f "$tmp"
 }
 
-# uv: Python package/tool manager (Astral). Not a user-facing brick: it is
-# the install vehicle for pre-commit (and any future Python CLI tool).
-# UV_NO_MODIFY_PATH: never let the installer edit rc files — .zshrc is a
-# symlink into the dotfiles repo and already exports ~/.local/bin.
+# uv (Astral) : véhicule d'install pour pre-commit.
+# UV_NO_MODIFY_PATH : ne touche pas aux rc — .zshrc est un lien vers le dépôt.
 install_uv_glibc() {
   check_cmd uv && return 0
   curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
 }
 
-# pre-commit, installed through uv. uv (and python on Termux) is brought
-# in automatically as a dependency step.
-# $1 = "pkg" (Termux) or "glibc" (Debian)
+# pre-commit via uv (tiré au besoin). $1 = pkg (Termux) | glibc (Debian).
 install_precommit() {
   check_cmd pre-commit && return 0
   if ! check_cmd uv; then
@@ -454,19 +430,16 @@ install_precommit() {
   uv tool install pre-commit
 }
 
-# ShellCheck linter: static release binary -> ~/.local/bin (asset names
-# use the raw uname -m arch, so $ARCH is used directly).
+# Binaire statique ShellCheck -> ~/.local/bin (l'asset utilise uname -m brut = $ARCH).
 install_shellcheck_glibc() {
   check_cmd shellcheck && return 0
-  local tag; tag="$(gh_latest_tag koalaman/shellcheck)"
-  [[ -n "$tag" ]] || { echo "Failed to resolve shellcheck version" >&2; return 1; }
+  local tag; tag="$(need_tag koalaman/shellcheck shellcheck)" || return 1
   SHELLCHECK_TAG="$tag" fetch_and_install \
     "https://github.com/koalaman/shellcheck/releases/download/${tag}/shellcheck-${tag}.linux.${ARCH}.tar.xz" \
     extract_shellcheck
 }
 
-# golangci-lint: official installer, user-local. The project advises its
-# install script over `go install` (version/reproducibility issues).
+# golangci-lint via son installeur officiel (recommandé plutôt que `go install`).
 install_golangci() {
   check_cmd golangci-lint && return 0
   curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
@@ -496,25 +469,21 @@ deploy_alacritty_config() {
 }
 
 install_debian() {
-  # Tools are installed user-local; make sure the directory exists.
+  # Les outils s'installent en user-local ; on s'assure que le dossier existe.
   mkdir -p "$HOME/.local/bin"
 
   install_apt_packages
 
-  # Bricks: tool + its config, installed and deployed immediately.
-  # The zsh group checks every member, not just zsh itself.
-  # $SUDO is intentionally unquoted: it disappears when empty.
+  # Outils de base — sans demander. $SUDO non quoté : disparaît si vide.
   if any_missing zsh fzf eza zoxide keychain; then
-    if ask "Install zsh and its tools (fzf, eza, zoxide, keychain)?"; then
-      attempt "zsh + tools" $SUDO apt-get install -y zsh fzf eza zoxide keychain
-    fi
+    attempt "zsh + tools" $SUDO apt-get install -y zsh fzf eza zoxide keychain
   fi
   check_cmd zsh && deploy_zsh_config
-  brick go "Install golang (~/.local/go)?" - install_go_glibc
-  brick hx "Install helix?" deploy_helix_debian install_helix_glibc
-  brick zellij "Install zellij?" deploy_zellij_config install_zellij_glibc
-  brick sshm "Install sshm?" - install_sshm_glibc
-  brick starship "Install starship?" - install_starship_glibc
+  brick go - - install_go_glibc
+  brick hx - deploy_helix_debian install_helix_glibc
+  brick zellij - deploy_zellij_config install_zellij_glibc
+  brick sshm - - install_sshm_glibc
+  brick starship - - install_starship_glibc
   brick pre-commit "Install pre-commit (via uv)?" - install_precommit glibc
   brick shellcheck "Install shellcheck?" - install_shellcheck_glibc
   if check_cmd go; then
@@ -527,22 +496,21 @@ install_debian() {
     fi
   fi
 
-  # ssh is a prerequisite, so its hardened client config deploys
-  # automatically (brick rule: tool present -> config deployed).
+  # ssh est un prérequis, donc sa config client durcie se déploie toujours.
   setup_ssh
 
   report_failures
 }
 
 # ==========================================================
-# Main
+# Point d'entrée
 # ==========================================================
+
 main() {
   detect_env
 
-  # Make user-local install locations visible to this script run itself:
-  # without this, gopls installation cannot find the Go toolchain that
-  # install_go_glibc just placed in ~/.local/go.
+  # Rend visibles dans ce run les emplacements fraîchement installés (pour que
+  # `go install` trouve la chaîne go placée dans ~/.local/go, etc.).
   export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$HOME/go/bin:$PATH"
 
   preflight

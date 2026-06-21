@@ -10,6 +10,7 @@ Le fichier [install.sh](https://raw.githubusercontent.com/lamboley/dotfiles/mast
 - La font `FiraCode Nerd Font`.
 - Le terminal `Alacritty`.
 - Le multiplexeur `Zellij`.
+- Installe Golang
 - Le programme Golang `sshm` et une configure ssh hardened.
 
 ## Installation
