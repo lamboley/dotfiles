@@ -16,11 +16,12 @@ function update-packages() {
 # Ajoute une clé SSH dans l'agent via keychain.
 #
 # Usage:
-#   keychain-add [-l] [<clé>]
+#   keychain-add [-h] [-l] [<clé>]
 #
 # Options:
-#     <clé> Nom de la clé à charger (défaut: id_ed25519).
+#     -h    Affiche l'aide.
 #     -l    Liste les clés SSH disponibles dans $HOME/.ssh.
+#     <clé> Nom de la clé à charger (défaut: id_ed25519).
 function keychain-add() {
   emulate -L zsh
 
@@ -29,6 +30,15 @@ function keychain-add() {
     for pubkey in "${HOME}"/.ssh/*.pub(N); do
       print -r -- "${${pubkey:t}%.pub}"
     done
+    return
+  elif [[ "${1:-}" == "-h" ]]; then
+    echo "Usage:"
+    echo "  keychain-add [-h] [-l] [<clé>]"
+    echo ""
+    echo "Options:"
+    echo "    -h    Affiche l'aide."
+    echo "    -l    Liste les clés SSH disponibles dans \$HOME/.ssh."
+    echo "    <clé> Nom de la clé à charger (défaut: id_ed25519)."
     return
   fi
 
