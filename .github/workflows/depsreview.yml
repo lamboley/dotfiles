@@ -6,12 +6,12 @@ name: Dependency Review
 #      Vital for a commercial product: a GPL/AGPL/LGPL/SSPL dep means we
 #      legally owe source code to users (AGPL even applies over network).
 #
-#   2. OSV-Scanner (Google) on every lockfile — vulnerability scan against
+#   2. OSV-Scanner (Google) on every lockfile - vulnerability scan against
 #      the OSV.dev database. Catches transitive vulns and existing deps
 #      that newly received a CVE since the last run.
 #
 # GitHub's own `dependency-review-action` would be a fourth layer, but it
-# needs GitHub Advanced Security on a private repo — not available on the
+# needs GitHub Advanced Security on a private repo - not available on the
 # free plan. The combo above gives equivalent coverage (vuln + license)
 # without GHAS.
 

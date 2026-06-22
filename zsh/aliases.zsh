@@ -1,3 +1,7 @@
+#!/usr/bin/env zsh
+#
+# aliases.zsh
+
 alias sshm='sshm -c ~/.ssh/config'
 
 alias mkdir='mkdir -p'

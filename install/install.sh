@@ -266,7 +266,7 @@ install_helix_lsp() {
         apt-get) ensure $SUDO apt-get install -y nodejs npm ;;
       esac
     fi
-    # Install global dans ~/.local (sans sudo) ; non-fatal — c'est un confort.
+    # Install global dans ~/.local (sans sudo) ; non-fatal - c'est un confort.
     if check_cmd npm; then
       mkdir -p "$HOME/.local/bin" "$HOME/.local/lib"
       npm install -g --prefix "$HOME/.local" bash-language-server || true
@@ -285,7 +285,7 @@ install_termux() {
   # Prérequis (sans demander).
   ensure pkg install -y git unzip openssh
 
-  # Outils de base — installés sans demander sur tous les OS.
+  # Outils de base - installés sans demander sur tous les OS.
   if any_missing zsh fzf eza zoxide; then
     pkg install -y zsh fzf eza zoxide || true
   fi
@@ -408,7 +408,7 @@ install_debian() {
 
   install_apt_packages
 
-  # Outils de base — sans demander. $SUDO non quoté : disparaît si vide.
+  # Outils de base - sans demander. $SUDO non quoté : disparaît si vide.
   if any_missing zsh fzf eza zoxide keychain; then
     $SUDO apt-get install -y zsh fzf eza zoxide keychain || true
   fi
