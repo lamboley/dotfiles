@@ -18,8 +18,8 @@ function update-packages() {
 # Usage:
 #   keychain-add [-l] [<clé>]
 #
+# Options:
 #     <clé> Nom de la clé à charger (défaut: id_ed25519).
-#
 #     -l    Liste les clés SSH disponibles dans $HOME/.ssh.
 function keychain-add() {
   emulate -L zsh
