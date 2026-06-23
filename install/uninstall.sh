@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
 #
-# uninstall.sh - retire les outils installés en user-local par install.sh.
-# Conserve : le dépôt ~/.dotfiles, les configs liées, ~/.ssh, les *.pre-dotfiles.bak.
+# uninstall.sh - retire UNIQUEMENT les versions apt/pkg des outils désormais
+# fournis en user-local par install.sh (pour éviter les doublons).
+# Ne touche à RIEN d'autre : ni ~/.local, ni les configs, ni ~/.ssh.
 
 set -euo pipefail
 
-# ==========================================================
-# Utilitaires
-# ==========================================================
+# Outils fournis en user-local et susceptibles d'exister en paquet système.
+PACKAGES=(fish fzf eza zoxide keychain zsh)
 
-IS_TERMUX=0
-[[ -n "${TERMUX_VERSION:-}" ]] && IS_TERMUX=1
-
-# Demande confirmation via /dev/tty. Pas de tty -> on continue.
 confirm() {
   [[ ! -t 1 || ! -e /dev/tty ]] && return 0
   local ans
@@ -21,78 +17,42 @@ confirm() {
   [[ "$ans" =~ ^[Yy] ]]
 }
 
-# rm -rf chaque chemin existant, en l'affichant.
-rm_path() {
-  local p
-  for p in "$@"; do
-    if [[ -e "$p" || -L "$p" ]]; then
-      rm -rf "$p" && echo "  - $p"
-    fi
-  done
-}
-
-# Retire un dossier seulement s'il est vide.
-rmdir_empty() {
-  [[ -d "$1" ]] || return 0
-  rmdir "$1" 2>/dev/null || true
-}
-
-# ==========================================================
-# Désinstallation
-# ==========================================================
-
 main() {
-  echo "Retire les outils user-local posés par install.sh."
-  echo "Conservés : ~/.dotfiles, configs liées, ~/.ssh, sauvegardes .bak."
+  echo "Retire UNIQUEMENT les versions apt/pkg de : ${PACKAGES[*]}"
+  echo "Rien d'autre n'est touché (~/.local, configs et ~/.ssh conservés)."
   confirm "Continuer ?" || { echo "Annulé."; exit 0; }
 
-  # Sécurité : si fish est le shell de connexion, repasser sur bash avant de
-  # le supprimer (sinon la prochaine connexion échoue).
-  if [[ "$(basename "${SHELL:-}")" == "fish" ]] && command -v bash >/dev/null 2>&1; then
-    chsh -s "$(command -v bash)" 2>/dev/null || true
-    echo "Shell par défaut remis sur bash."
+  local pkg installed=()
+
+  if command -v apt-get >/dev/null 2>&1; then
+    # apt purge nécessite root (on retire des paquets installés en root).
+    local sudo=""
+    if [[ "$(id -u)" -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
+      sudo="sudo"
+    fi
+    for pkg in "${PACKAGES[@]}"; do
+      dpkg -s "$pkg" >/dev/null 2>&1 && installed+=("$pkg")
+    done
+    if [[ ${#installed[@]} -eq 0 ]]; then
+      echo "Aucun paquet apt à retirer."
+    else
+      echo "apt purge : ${installed[*]}"
+      $sudo apt-get purge -y "${installed[@]}"
+    fi
+  elif command -v pkg >/dev/null 2>&1; then
+    # Termux : pas de sudo.
+    for pkg in "${PACKAGES[@]}"; do
+      command -v "$pkg" >/dev/null 2>&1 && installed+=("$pkg")
+    done
+    if [[ ${#installed[@]} -eq 0 ]]; then
+      echo "Aucun paquet pkg à retirer."
+    else
+      echo "pkg uninstall : ${installed[*]}"
+      pkg uninstall -y "${installed[@]}"
+    fi
+  else
+    echo "Ni apt ni pkg détecté — rien à faire."
   fi
-
-  echo "Binaires (~/.local/bin) :"
-  local b
-  for b in hx fish fzf eza zoxide keychain zellij sshm starship nvim bash-language-server; do
-    rm_path "$HOME/.local/bin/$b"
-  done
-
-  echo "Données éditeurs :"
-  rm_path "$HOME/.local/lib/nvim" "$HOME/.local/share/nvim" \
-          "$HOME/.local/share/man/man1/nvim.1" "$HOME/.config/helix/runtime"
-
-  echo "Go (chaîne + binaires go install) :"
-  rm_path "$HOME/.local/go"
-  for b in gopls ghq sshm; do
-    rm_path "$HOME/go/bin/$b"
-  done
-  rmdir_empty "$HOME/go/bin"
-  rmdir_empty "$HOME/go"
-
-  echo "bash-language-server (npm) :"
-  rm_path "$HOME/.local/lib/node_modules/bash-language-server"
-
-  echo "Plugins zsh :"
-  rm_path "$HOME/.zsh/plugins"
-  rmdir_empty "$HOME/.zsh"
-
-  echo "fisher / plugins fish :"
-  rm_path "$HOME/.local/share/fisher" \
-          "$HOME/.config/fish/completions" "$HOME/.config/fish/conf.d"
-  # Nos fonctions fish sont des liens ; les plugins sont de vrais fichiers.
-  if [[ -d "$HOME/.config/fish/functions" ]]; then
-    find "$HOME/.config/fish/functions" -maxdepth 1 -type f -delete || true
-  fi
-
-  echo "Polices Nerd Font :"
-  rm_path "$HOME"/.local/share/fonts/FiraCode*.ttf
-  if [[ "$IS_TERMUX" -eq 1 ]]; then
-    rm_path "$HOME/.termux/font.ttf"
-  fi
-
-  echo "Terminé. Relance install.sh pour réinstaller."
 }
 
 main "$@"

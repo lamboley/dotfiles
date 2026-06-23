@@ -1,4 +1,4 @@
-# config.fish - transposé de .zshrc (zsh gardé en option).
+# config.fish
 
 # PATH (prepend de nos emplacements user-local).
 set -gx PATH $HOME/.local/bin $HOME/.local/go/bin $HOME/go/bin $PATH

@@ -3,15 +3,14 @@
 # Dotfiles
 
 Ce projet contient mes dotfiles.
-Le fichier [install.sh](https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh) va faire les choses suivantes:
+Le fichier [install.sh](https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh) installe, **en user-local (`~/.local`), sans sudo** :
 
-- Le shell `Zsh` et deux plugins.
-- L'éditeur `Helix`.
-- La font `FiraCode Nerd Font`.
-- Le terminal `Alacritty`.
+- Le shell `Fish` (plugins via `fisher` : tide, z, fzf.fish).
+- Les outils `fzf`, `eza`, `zoxide`, `keychain`.
+- L'éditeur `Helix` (et un `Neovim` minimal).
 - Le multiplexeur `Zellij`.
-- Installe Golang
-- Le programme Golang `sshm` et une configure ssh hardened.
+- `Golang`, le programme Go `sshm` (+ `ghq`) et une config ssh hardened.
+- La font `FiraCode Nerd Font` et le terminal `Alacritty` (GUI).
 
 ## Installation
 

@@ -161,10 +161,11 @@ detect_env() {
     *) echo "Unsupported architecture: $ARCH (expected x86_64 or aarch64)" >&2; exit 1 ;;
   esac
 
-  if [[ "$IS_TERMUX" -eq 1 || "$(id -u)" -eq 0 ]]; then
+  # sudo seulement si nécessaire ET disponible. Absent -> on continue sans :
+  # tout s'installe en user-local, les rares étapes apt (GUI) se sautent.
+  if [[ "$IS_TERMUX" -eq 1 || "$(id -u)" -eq 0 ]] || ! check_cmd sudo; then
     SUDO=""
   else
-    need_cmd sudo
     SUDO="sudo"
   fi
 }
@@ -196,15 +197,6 @@ clone_or_update_repo() {
 # Étapes partagées
 # ==========================================================
 
-clone_zsh_plugins() {
-  mkdir -p "$HOME/.zsh/plugins"
-  local p
-  for p in zsh-autosuggestions zsh-syntax-highlighting zsh-completions; do
-    [[ -d "$HOME/.zsh/plugins/$p" ]] || \
-      ensure git clone --depth=1 "https://github.com/zsh-users/$p" "$HOME/.zsh/plugins/$p"
-  done
-}
-
 # Lie helix/* du dépôt dans ~/.config/helix/ (le dossier reste réel pour que
 # runtime/ cohabite). -n : remplace un lien-vers-dossier, ne descend pas dedans.
 deploy_editor_configs() {
@@ -220,13 +212,6 @@ deploy_nvim_config() {
   mkdir -p "$HOME/.config/nvim"
   backup_if_real "$HOME/.config/nvim/init.lua"
   ln -sf "$DOTFILES/nvim/init.lua" "$HOME/.config/nvim/init.lua"
-}
-
-# Config zsh (optionnelle) : plugins + lien .zshrc. (fish = shell par défaut.)
-deploy_zsh_config() {
-  clone_zsh_plugins
-  backup_if_real "$HOME/.zshrc"
-  ln -sf "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"
 }
 
 # Config fish (shell principal) : config + fonctions + plugins (fisher).
@@ -314,8 +299,14 @@ install_helix_lsp() {
   if ! check_cmd bash-language-server; then
     if ! check_cmd npm && ask "bash-language-server requires Node.js. Install it?"; then
       case "$1" in
-        pkg)     ensure pkg install -y nodejs ;;
-        apt-get) ensure $SUDO apt-get install -y nodejs npm ;;
+        pkg)
+          pkg install -y nodejs || true
+          ;;
+        apt-get)
+          if [[ -n "$SUDO" || "$(id -u)" -eq 0 ]]; then
+            $SUDO apt-get install -y nodejs npm || true
+          fi
+          ;;
       esac
     fi
     # Install global dans ~/.local (sans sudo) ; non-fatal - c'est un confort.
@@ -339,7 +330,6 @@ install_termux() {
     pkg install -y fzf eza zoxide || true
   fi
   brick fish - deploy_fish_config pkg install -y fish
-  brick zsh "Install zsh aussi ?" deploy_zsh_config pkg install -y zsh
   brick zellij - deploy_zellij_config pkg install -y zellij
   brick starship - - pkg install -y starship
   brick go - - pkg install -y golang
@@ -375,8 +365,11 @@ install_termux() {
 # Branche DEBIAN / glibc
 # ==========================================================
 
+# Confort uniquement : git est déjà garanti par le preflight, unzip ne sert
+# qu'aux polices GUI. Sauté sans sudo (non bloquant).
 install_apt_packages() {
-  ensure $SUDO apt-get install -y git unzip
+  [[ -n "$SUDO" || "$(id -u)" -eq 0 ]] || return 0
+  $SUDO apt-get install -y unzip || true
 }
 
 install_nerd_font_gui() {
@@ -496,11 +489,15 @@ install_starship_glibc() {
     sh -s -- --yes --bin-dir "$HOME/.local/bin"
 }
 
+# alacritty : pas de binaire standalone officiel -> reste apt (PPA, GUI).
+# Nécessite sudo ; sauté sinon.
 install_alacritty_gui() {
+  [[ -n "$SUDO" || "$(id -u)" -eq 0 ]] || return 0
   if has_gui && ! check_cmd alacritty; then
-    $SUDO apt-get install -y software-properties-common
-    $SUDO add-apt-repository -y ppa:aslatter/ppa
-    $SUDO apt-get update -qq && $SUDO apt-get install -y alacritty
+    $SUDO apt-get install -y software-properties-common || return 0
+    $SUDO add-apt-repository -y ppa:aslatter/ppa || return 0
+    $SUDO apt-get update -qq || true
+    $SUDO apt-get install -y alacritty || true
   fi
 }
 
@@ -521,7 +518,6 @@ install_debian() {
   brick eza - - install_eza_glibc
   brick zoxide - - install_zoxide_glibc
   brick keychain - - install_keychain
-  brick zsh "Install zsh aussi ?" deploy_zsh_config $SUDO apt-get install -y zsh
   brick go - - install_go_glibc
   brick hx - deploy_helix_debian install_helix_glibc
   brick nvim "Install neovim?" deploy_nvim_config install_nvim_glibc
