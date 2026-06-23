@@ -14,6 +14,9 @@ if set -q PREFIX; and test -S $PREFIX/var/run/ssh-agent.socket
 end
 
 if status is-interactive
+    # Pas de message d'accueil.
+    set -g fish_greeting ""
+
     # Démarre keychain (clés à la demande : keychain-add). On source le
     # fichier fish que keychain génère (~/.keychain/<host>-fish).
     if command -q keychain; and not grep -qi proot /proc/version 2>/dev/null
