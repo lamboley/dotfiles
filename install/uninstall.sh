@@ -17,6 +17,18 @@ confirm() {
   [[ "$ans" =~ ^[Yy] ]]
 }
 
+# Vrai si $1 est le shell de connexion en cours : anti-lockout, on ne purge
+# jamais le shell sous lequel on tourne (sinon plus de terminal).
+shell_in_use() {
+  [[ "$1" == "$(basename "${SHELL:-}")" ]] && return 0
+  if command -v getent >/dev/null 2>&1; then
+    local login_sh
+    login_sh="$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)"
+    [[ "$1" == "$(basename "$login_sh")" ]] && return 0
+  fi
+  return 1
+}
+
 main() {
   echo "Retire UNIQUEMENT les versions apt/pkg de : ${PACKAGES[*]}"
   echo "Rien d'autre n'est touché (~/.local, configs et ~/.ssh conservés)."
@@ -31,6 +43,10 @@ main() {
       sudo="sudo"
     fi
     for pkg in "${PACKAGES[@]}"; do
+      if shell_in_use "$pkg"; then
+        echo "  (conservé : $pkg est ton shell de connexion)"
+        continue
+      fi
       dpkg -s "$pkg" >/dev/null 2>&1 && installed+=("$pkg")
     done
     if [[ ${#installed[@]} -eq 0 ]]; then
@@ -42,6 +58,10 @@ main() {
   elif command -v pkg >/dev/null 2>&1; then
     # Termux : pas de sudo.
     for pkg in "${PACKAGES[@]}"; do
+      if shell_in_use "$pkg"; then
+        echo "  (conservé : $pkg est ton shell de connexion)"
+        continue
+      fi
       command -v "$pkg" >/dev/null 2>&1 && installed+=("$pkg")
     done
     if [[ ${#installed[@]} -eq 0 ]]; then

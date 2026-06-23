@@ -17,7 +17,7 @@ if status is-interactive
     # Démarre keychain (clés à la demande : keychain-add). On source le
     # fichier fish que keychain génère (~/.keychain/<host>-fish).
     if command -q keychain; and not grep -qi proot /proc/version 2>/dev/null
-        keychain --quiet --agents ssh
+        keychain --quiet
         set -l kf $HOME/.keychain/(hostname)-fish
         test -e $kf; and source $kf
     end
