@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #
+# install.sh - install ma config
+#
 # Lancer via curl :
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"
 
@@ -14,7 +16,7 @@ REPO="https://github.com/lamboley/dotfiles.git"
 
 IS_TERMUX=0
 ARCH=""          # uname -m brut : x86_64 / aarch64       (helix, zellij)
-ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64    (sshm)
+ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64    (sshm, nvim)
 ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64    (chaîne Go)
 SUDO=""
 TMP_FILES=()     # fichiers mktemp à supprimer en sortie (safe Ctrl-C)
@@ -133,6 +135,18 @@ extract_helix() {
   rm -rf "$dir"
 }
 
+# nvim : tarball prefix (bin/ + lib/ + share/) déballé dans ~/.local.
+extract_nvim() {
+  mkdir -p "$HOME/.local"
+  tar -C "$HOME/.local" --strip-components=1 -xzf "$1"
+}
+
+# fish : binaire unique auto-contenu (tar.xz) -> ~/.local/bin.
+extract_fish() {
+  mkdir -p "$HOME/.local/bin"
+  tar -C "$HOME/.local/bin" -xJf "$1" fish
+}
+
 # ==========================================================
 # Détection / preflight
 # ==========================================================
@@ -201,12 +215,45 @@ deploy_editor_configs() {
   done
 }
 
-# Config zsh : plugins, lien .zshrc, shell par défaut.
+# Lie nvim/init.lua du dépôt dans ~/.config/nvim/.
+deploy_nvim_config() {
+  mkdir -p "$HOME/.config/nvim"
+  backup_if_real "$HOME/.config/nvim/init.lua"
+  ln -sf "$DOTFILES/nvim/init.lua" "$HOME/.config/nvim/init.lua"
+}
+
+# Config zsh (optionnelle) : plugins + lien .zshrc. (fish = shell par défaut.)
 deploy_zsh_config() {
   clone_zsh_plugins
   backup_if_real "$HOME/.zshrc"
   ln -sf "$DOTFILES/zsh/.zshrc" "$HOME/.zshrc"
+}
+
+# Config fish (shell principal) : config + fonctions + plugins (fisher).
+deploy_fish_config() {
+  mkdir -p "$HOME/.config/fish/functions"
+  backup_if_real "$HOME/.config/fish/config.fish"
+  ln -sf "$DOTFILES/fish/config.fish" "$HOME/.config/fish/config.fish"
+  ln -sf "$DOTFILES/fish/fish_plugins" "$HOME/.config/fish/fish_plugins"
+  local f
+  for f in "$DOTFILES"/fish/functions/*.fish; do
+    ln -sf "$f" "$HOME/.config/fish/functions/$(basename "$f")"
+  done
+  install_fisher
   set_default_shell
+}
+
+# fisher (gestionnaire de plugins fish) + installe ceux du fish_plugins
+# (tide, z, fzf.fish). Non-fatal : réseau requis au 1er passage.
+install_fisher() {
+  check_cmd fish || return 0
+  fish -c '
+    if not functions -q fisher
+      curl -sSL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
+      fisher install jorgebucaran/fisher
+    end
+    fisher update
+  ' || true
 }
 
 # Déploie la config helix + ses language servers (gopls, bash-ls).
@@ -244,9 +291,14 @@ setup_ssh() {
 }
 
 set_default_shell() {
-  if [[ "$(basename "${SHELL:-}")" != "zsh" ]] && check_cmd zsh; then
-    chsh -s "$(command -v zsh)" || true
+  check_cmd fish || return 0
+  [[ "$(basename "${SHELL:-}")" == "fish" ]] && return 0
+  local fishbin; fishbin="$(command -v fish)"
+  # fish user-local doit figurer dans /etc/shells pour que chsh l'accepte.
+  if [[ -f /etc/shells ]] && ! grep -qxF "$fishbin" /etc/shells; then
+    echo "$fishbin" | $SUDO tee -a /etc/shells >/dev/null 2>&1 || true
   fi
+  chsh -s "$fishbin" || true
 }
 
 # Language servers Helix (Go + Bash). $1 = gestionnaire de paquets node (pkg|apt-get).
@@ -279,23 +331,23 @@ install_helix_lsp() {
 # ==========================================================
 
 install_termux() {
-  # Rafraîchit seulement les listes de paquets (l'upgrade système = update-packages()).
-  ensure pkg update -y
-
   # Prérequis (sans demander).
   ensure pkg install -y git unzip openssh
 
   # Outils de base - installés sans demander sur tous les OS.
-  if any_missing zsh fzf eza zoxide; then
-    pkg install -y zsh fzf eza zoxide || true
+  if any_missing fzf eza zoxide; then
+    pkg install -y fzf eza zoxide || true
   fi
-  check_cmd zsh && deploy_zsh_config
+  brick fish - deploy_fish_config pkg install -y fish
+  brick zsh "Install zsh aussi ?" deploy_zsh_config pkg install -y zsh
   brick zellij - deploy_zellij_config pkg install -y zellij
   brick starship - - pkg install -y starship
   brick go - - pkg install -y golang
   brick hx - deploy_helix_termux pkg install -y helix
+  brick nvim "Install neovim?" deploy_nvim_config pkg install -y neovim
   if check_cmd go; then
     brick sshm - - go install github.com/Gu1llaum-3/sshm@latest
+    brick ghq "Install ghq?" - go install github.com/x-motemen/ghq@latest
   fi
 
   # ssh-agent persistant via termux-services.
@@ -316,7 +368,6 @@ install_termux() {
     fi
   fi
 
-  # ssh est un prérequis, donc sa config client durcie se déploie toujours.
   setup_ssh
 }
 
@@ -345,6 +396,64 @@ install_helix_glibc() {
   fetch_and_install \
     "https://github.com/helix-editor/helix/releases/download/${HELIX_TAG}/helix-${HELIX_TAG}-${ARCH}-linux.tar.xz" \
     extract_helix
+}
+
+install_nvim_glibc() {
+  check_cmd nvim && return 0
+  local tag; tag="$(need_tag neovim/neovim nvim)" || return 1
+  fetch_and_install \
+    "https://github.com/neovim/neovim/releases/download/${tag}/nvim-linux-${ARCH_ARM64}.tar.gz" \
+    extract_nvim
+}
+
+# fish : binaire standalone GitHub -> ~/.local/bin (asset = uname -m brut).
+install_fish_glibc() {
+  check_cmd fish && return 0
+  local tag; tag="$(need_tag fish-shell/fish-shell fish)" || return 1
+  fetch_and_install \
+    "https://github.com/fish-shell/fish-shell/releases/download/${tag}/fish-${tag}-linux-${ARCH}.tar.xz" \
+    extract_fish
+}
+
+# fzf : binaire unique (.tar.gz, chaîne Go amd64/arm64) -> ~/.local/bin.
+install_fzf_glibc() {
+  check_cmd fzf && return 0
+  local tag; tag="$(need_tag junegunn/fzf fzf)" || return 1
+  EXTRACT_BIN=fzf fetch_and_install \
+    "https://github.com/junegunn/fzf/releases/download/${tag}/fzf-${tag#v}-linux_${ARCH_GO}.tar.gz" \
+    extract_single_bin
+}
+
+# eza : binaire unique (membre ./eza, asset gnu) -> ~/.local/bin.
+install_eza_glibc() {
+  check_cmd eza && return 0
+  local tag; tag="$(need_tag eza-community/eza eza)" || return 1
+  EXTRACT_BIN=./eza fetch_and_install \
+    "https://github.com/eza-community/eza/releases/download/${tag}/eza_${ARCH}-unknown-linux-gnu.tar.gz" \
+    extract_single_bin
+}
+
+# zoxide : binaire zoxide seul (man/complétions du tarball ignorés) -> ~/.local/bin.
+install_zoxide_glibc() {
+  check_cmd zoxide && return 0
+  local tag; tag="$(need_tag ajeetdsouza/zoxide zoxide)" || return 1
+  EXTRACT_BIN=zoxide fetch_and_install \
+    "https://github.com/ajeetdsouza/zoxide/releases/download/${tag}/zoxide-${tag#v}-${ARCH}-unknown-linux-musl.tar.gz" \
+    extract_single_bin
+}
+
+# keychain : script unique publié tel quel (pas de tarball, tag sans v) -> ~/.local/bin.
+install_keychain() {
+  check_cmd keychain && return 0
+  local tag; tag="$(need_tag danielrobbins/keychain keychain)" || return 1
+  fetch_and_install \
+    "https://github.com/danielrobbins/keychain/releases/download/${tag}/keychain" \
+    install_keychain_bin
+}
+
+install_keychain_bin() {
+  mkdir -p "$HOME/.local/bin"
+  install -m 755 "$1" "$HOME/.local/bin/keychain"
 }
 
 install_zellij_glibc() {
@@ -403,21 +512,23 @@ deploy_alacritty_config() {
 }
 
 install_debian() {
-  # Les outils s'installent en user-local ; on s'assure que le dossier existe.
   mkdir -p "$HOME/.local/bin"
 
   install_apt_packages
 
-  # Outils de base - sans demander. $SUDO non quoté : disparaît si vide.
-  if any_missing zsh fzf eza zoxide keychain; then
-    $SUDO apt-get install -y zsh fzf eza zoxide keychain || true
-  fi
-  check_cmd zsh && deploy_zsh_config
+  brick fish - deploy_fish_config install_fish_glibc
+  brick fzf - - install_fzf_glibc
+  brick eza - - install_eza_glibc
+  brick zoxide - - install_zoxide_glibc
+  brick keychain - - install_keychain
+  brick zsh "Install zsh aussi ?" deploy_zsh_config $SUDO apt-get install -y zsh
   brick go - - install_go_glibc
   brick hx - deploy_helix_debian install_helix_glibc
+  brick nvim "Install neovim?" deploy_nvim_config install_nvim_glibc
   brick zellij - deploy_zellij_config install_zellij_glibc
   brick sshm - - install_sshm_glibc
   brick starship - - install_starship_glibc
+  brick ghq "Install ghq?" - go install github.com/x-motemen/ghq@latest
   if has_gui; then
     brick alacritty "Install alacritty?" deploy_alacritty_config install_alacritty_gui
     install_nerd_font_gui || true

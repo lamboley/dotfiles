@@ -44,3 +44,19 @@ function keychain-add() {
 
   eval "$(keychain --eval --agents ssh "${1:-id_ed25519}")"
 }
+
+# Saute dans un repo géré par ghq (sélection fuzzy via fzf).
+#
+# Usage:
+#   repo
+function repo() {
+  emulate -L zsh
+
+  (( $+commands[ghq] && $+commands[fzf] )) || {
+    print -u2 "repo: ghq et fzf sont requis"
+    return 1
+  }
+
+  local dir
+  dir="$(ghq list -p | fzf)" && cd -- "${dir}"
+}

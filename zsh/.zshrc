@@ -32,17 +32,7 @@ if [ -n "${PREFIX:-}" ] && [ -S "$PREFIX/var/run/ssh-agent.socket" ]; then
 fi
 
 # Charge `fzf`
-if command -v fzf >/dev/null 2>&1; then
-  if fzf --zsh >/dev/null 2>&1; then
-    source <(fzf --zsh)
-  else
-    for f in /usr/share/doc/fzf/examples/key-bindings.zsh \
-             /usr/share/doc/fzf/examples/completion.zsh; do
-      [ -f "$f" ] && source "$f"
-    done
-    unset f
-  fi
-fi
+command -v fzf >/dev/null 2>&1 && source <(fzf --zsh)
 
 # Charge le plugin `zsh-autosuggestions`
 for d in \
