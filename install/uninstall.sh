@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # Outils fournis en user-local et susceptibles d'exister en paquet système.
-PACKAGES=(fish fzf eza zoxide keychain zsh)
+PACKAGES=(fish fzf eza zoxide keychain zsh starship)
 
 confirm() {
   [[ ! -t 1 || ! -e /dev/tty ]] && return 0

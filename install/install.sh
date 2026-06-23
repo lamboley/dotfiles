@@ -331,7 +331,6 @@ install_termux() {
   fi
   brick fish - deploy_fish_config pkg install -y fish
   brick zellij - deploy_zellij_config pkg install -y zellij
-  brick starship - - pkg install -y starship
   brick go - - pkg install -y golang
   brick hx - deploy_helix_termux pkg install -y helix
   brick nvim "Install neovim?" deploy_nvim_config pkg install -y neovim
@@ -482,13 +481,6 @@ install_go_glibc() {
   rm -f "$tmp"
 }
 
-install_starship_glibc() {
-  check_cmd starship && return 0
-  mkdir -p "$HOME/.local/bin"
-  curl -fsSL https://starship.rs/install.sh | \
-    sh -s -- --yes --bin-dir "$HOME/.local/bin"
-}
-
 # alacritty : pas de binaire standalone officiel -> reste apt (PPA, GUI).
 # Nécessite sudo ; sauté sinon.
 install_alacritty_gui() {
@@ -523,7 +515,6 @@ install_debian() {
   brick nvim "Install neovim?" deploy_nvim_config install_nvim_glibc
   brick zellij - deploy_zellij_config install_zellij_glibc
   brick sshm - - install_sshm_glibc
-  brick starship - - install_starship_glibc
   brick ghq "Install ghq?" - go install github.com/x-motemen/ghq@latest
   if has_gui; then
     brick alacritty "Install alacritty?" deploy_alacritty_config install_alacritty_gui
