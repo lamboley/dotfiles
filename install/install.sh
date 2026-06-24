@@ -283,7 +283,14 @@ set_default_shell() {
   if [[ -f /etc/shells ]] && ! grep -qxF "$fishbin" /etc/shells; then
     echo "$fishbin" | $SUDO tee -a /etc/shells >/dev/null 2>&1 || true
   fi
-  chsh -s "$fishbin" || true
+  # `usermod` édite /etc/passwd directement (root) : pas de PAM, pas de
+  # restriction "shell courant absent de /etc/shells". Plus fiable que
+  # `chsh` quand sudo est dispo. Sans sudo, fallback sur chsh interactif.
+  if [[ -n "$SUDO" ]] && check_cmd usermod; then
+    $SUDO usermod -s "$fishbin" "$(id -un)" || true
+  else
+    chsh -s "$fishbin" || true
+  fi
 }
 
 # Language servers Helix (Go + Bash). $1 = gestionnaire de paquets node (pkg|apt-get).
