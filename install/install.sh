@@ -176,6 +176,31 @@ extract_node() {
   tar -C "$HOME/.local" --strip-components=1 -xJf "$1" "$top/bin" "$top/lib"
 }
 
+# yazi : asset .zip (pas de tarball). Le zip contient yazi-<target>/{yazi,ya,…}.
+# unzip pas garanti -> on tente unzip, puis python3 (toujours là sur Rocky/Debian),
+# puis bsdtar. On installe yazi (+ ya s'il est présent) dans ~/.local/bin.
+extract_yazi() {
+  mkdir -p "$HOME/.local/bin"
+  local dir; dir="$(mktemp -d)"; TMP_FILES+=("$dir")
+  if check_cmd unzip; then
+    unzip -q -o "$1" -d "$dir" || return 1
+  elif check_cmd python3; then
+    python3 -m zipfile -e "$1" "$dir" || return 1
+  elif check_cmd bsdtar; then
+    bsdtar -xf "$1" -C "$dir" || return 1
+  else
+    echo "yazi: unzip, python3 ou bsdtar requis pour extraire le .zip" >&2
+    return 1
+  fi
+  local f
+  f="$(find "$dir" -type f -name yazi | head -1)"
+  [[ -n "$f" ]] || return 1
+  install -m 755 "$f" "$HOME/.local/bin/yazi"
+  f="$(find "$dir" -type f -name ya | head -1)"
+  [[ -n "$f" ]] && install -m 755 "$f" "$HOME/.local/bin/ya"
+  rm -rf "$dir"
+}
+
 # ==========================================================
 # Détection / preflight
 # ==========================================================
@@ -428,6 +453,7 @@ install_termux() {
   brick go - - pkg install -y golang
   brick hx - deploy_helix_termux pkg install -y helix
   brick lazygit - deploy_lazygit_config pkg install -y lazygit
+  brick yazi - - pkg install -y yazi
   if check_cmd go; then
     brick sshm - - go install github.com/Gu1llaum-3/sshm@latest
   fi
@@ -552,6 +578,15 @@ install_lazygit_glibc() {
     extract_single_bin
 }
 
+# yazi : gestionnaire de fichiers TUI (asset .zip, variante musl) -> ~/.local/bin.
+install_yazi_glibc() {
+  check_cmd yazi && return 0
+  local tag; tag="$(need_tag sxyazi/yazi yazi)" || return 1
+  fetch_and_install \
+    "https://github.com/sxyazi/yazi/releases/download/${tag}/yazi-${ARCH}-unknown-linux-musl.zip" \
+    extract_yazi
+}
+
 # Chaîne Go -> ~/.local/go (besoin de ~/.local/go/bin dans le PATH).
 install_go_glibc() {
   check_cmd go && return 0
@@ -605,6 +640,7 @@ install_glibc() {
   brick zellij - deploy_zellij_config install_zellij_glibc
   brick sshm - - install_sshm_glibc
   brick lazygit - deploy_lazygit_config install_lazygit_glibc
+  brick yazi - - install_yazi_glibc
   if has_gui; then
     brick alacritty "Install alacritty?" deploy_alacritty_config install_alacritty_gui
     install_nerd_font_gui || true
@@ -648,6 +684,7 @@ cmd_install() {
   case "${1:-}" in
     zellij)   pkg_or_build zellij   install_zellij_glibc;  deploy_zellij_config ;;
     lazygit)  pkg_or_build lazygit  install_lazygit_glibc; deploy_lazygit_config ;;
+    yazi)     pkg_or_build yazi     install_yazi_glibc ;;
     zoxide)   pkg_or_build zoxide   install_zoxide_glibc ;;
     keychain) pkg_or_build keychain install_keychain ;;
     go)       pkg_or_build golang   install_go_glibc ;;
@@ -666,7 +703,7 @@ cmd_install() {
       fi
       ;;
     fish|zsh) echo "shell exclu (risque de lockout) : passe par l'install complète." >&2; exit 1 ;;
-    *) echo "usage: install.sh install <zellij|lazygit|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
+    *) echo "usage: install.sh install <zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
   esac
 }
 
@@ -699,6 +736,7 @@ cmd_uninstall() {
   case "${1:-}" in
     zellij)   uninstall_local zellij   "$HOME/.config/zellij/config.kdl" ;;
     lazygit)  uninstall_local lazygit  "$HOME/.config/lazygit/config.yml" ;;
+    yazi)     uninstall_local yazi; rm_user_bin ya ;;
     zoxide)   uninstall_local zoxide ;;
     keychain) uninstall_local keychain ;;
     sshm)     uninstall_local sshm ;;
@@ -717,7 +755,7 @@ cmd_uninstall() {
       [[ -d "$HOME/.config/helix/runtime" ]] && { rm -rf "$HOME/.config/helix/runtime"; echo "retiré : ~/.config/helix/runtime"; }
       ;;
     fish|zsh) echo "shell exclu (risque de lockout) : retire-le à la main si besoin." >&2; exit 1 ;;
-    *) echo "usage: install.sh uninstall <zellij|lazygit|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
+    *) echo "usage: install.sh uninstall <zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
   esac
 }
 

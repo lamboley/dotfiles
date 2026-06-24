@@ -28,4 +28,10 @@ if status is-interactive
 
     alias ll='ls -la'
     alias lt='ls -lrt'
+
+    # Démarre zellij dans un shell interactif (sauf si déjà dedans, via $ZELLIJ)
+    # -> partout, plus seulement alacritty : SSH/VPS, WSL, n'importe quel terminal.
+    if command -q zellij; and not set -q ZELLIJ
+        zellij
+    end
 end
