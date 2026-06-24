@@ -508,10 +508,17 @@ install_zoxide_glibc() {
     extract_single_bin
 }
 
-# keychain : script unique publié tel quel (pas de tarball, tag sans v) -> ~/.local/bin.
+# keychain : script shell (#!/bin/sh) sans dépendance -> ~/.local/bin.
+# On reste sur la branche 2.x : la 3.0 est une réécriture Python (.pyz, exige
+# python3) et GitHub `latest` pointe à tort sur sa beta (prerelease mal taggée).
+# `gh_latest_tag` (redirect) ne sait pas filtrer -> on résout la dernière 2.x.y
+# via l'API (1 requête ; le filtre `2.N.N"` exclut la 3.x ET les _beta).
 install_keychain() {
   check_cmd keychain && return 0
-  local tag; tag="$(need_tag danielrobbins/keychain keychain)" || return 1
+  local tag
+  tag="$(curl -fsSL 'https://api.github.com/repos/danielrobbins/keychain/releases?per_page=30' 2>/dev/null \
+    | grep -oE '"tag_name": *"2\.[0-9]+\.[0-9]+"' | grep -oE '2\.[0-9]+\.[0-9]+' | sort -V | tail -1)"
+  [[ -n "$tag" ]] || { echo "Failed to resolve keychain 2.x version" >&2; return 1; }
   fetch_and_install \
     "https://github.com/danielrobbins/keychain/releases/download/${tag}/keychain" \
     install_keychain_bin
