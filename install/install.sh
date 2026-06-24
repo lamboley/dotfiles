@@ -209,11 +209,23 @@ detect_env() {
   fi
 }
 
+# Prérequis de bootstrap (git/curl pour récupérer le dépôt + les binaires).
+# Non installés automatiquement : ils doivent préexister. Si manquants, on
+# liste tout d'un coup et on propose la commande d'install de la plateforme.
 preflight() {
-  need_cmd curl
-  need_cmd git
-  need_cmd uname
-  need_cmd sed
+  local c missing=()
+  for c in curl git uname sed; do
+    check_cmd "$c" || missing+=("$c")
+  done
+  [[ ${#missing[@]} -eq 0 ]] && return 0
+
+  echo "Commande(s) requise(s) manquante(s) : ${missing[*]}" >&2
+  if [[ "$IS_TERMUX" -eq 1 ]]; then
+    echo "  -> installe-les : pkg install -y ${missing[*]}" >&2
+  elif [[ -n "$PKG" ]]; then
+    echo "  -> installe-les : ${SUDO:+sudo }$PKG install -y ${missing[*]}" >&2
+  fi
+  exit 1
 }
 
 # ==========================================================
