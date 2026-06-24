@@ -19,6 +19,7 @@ ARCH=""          # uname -m brut : x86_64 / aarch64       (helix, zellij)
 ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64    (sshm, nvim)
 ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64    (chaîne Go)
 SUDO=""
+PKG=""           # gestionnaire de paquets hôte : apt-get / dnf / yum (extras)
 TMP_FILES=()     # fichiers mktemp à supprimer en sortie (safe Ctrl-C)
 
 cleanup() {
@@ -168,6 +169,16 @@ detect_env() {
   else
     SUDO="sudo"
   fi
+
+  # Gestionnaire de paquets de l'hôte glibc (extras confort/GUI uniquement :
+  # unzip, nodejs, alacritty). Les binaires principaux viennent de GitHub en
+  # user-local, indépendamment de la distro. Vide -> ces extras se sautent.
+  if [[ "$IS_TERMUX" -eq 0 ]]; then
+    if check_cmd apt-get; then PKG="apt-get"
+    elif check_cmd dnf; then PKG="dnf"
+    elif check_cmd yum; then PKG="yum"
+    fi
+  fi
 }
 
 preflight() {
@@ -247,9 +258,9 @@ deploy_helix_termux() {
   install_helix_lsp pkg
 }
 
-deploy_helix_debian() {
+deploy_helix_glibc() {
   deploy_editor_configs
-  install_helix_lsp apt-get
+  install_helix_lsp "$PKG"
 }
 
 deploy_zellij_config() {
@@ -298,7 +309,7 @@ set_default_shell() {
   fi
 }
 
-# Language servers Helix (Go + Bash). $1 = gestionnaire de paquets node (pkg|apt-get).
+# Language servers Helix (Go + Bash). $1 = gestionnaire de paquets (pkg|apt-get|dnf|yum).
 install_helix_lsp() {
   if check_cmd gopls && check_cmd bash-language-server; then
     return 0
@@ -317,6 +328,12 @@ install_helix_lsp() {
         apt-get)
           if [[ -n "$SUDO" || "$(id -u)" -eq 0 ]]; then
             $SUDO apt-get install -y nodejs npm || true
+          fi
+          ;;
+        dnf|yum)
+          # npm est fourni avec le paquet nodejs sur RHEL/Rocky/Fedora.
+          if [[ -n "$SUDO" || "$(id -u)" -eq 0 ]]; then
+            $SUDO "$1" install -y nodejs || true
           fi
           ;;
       esac
@@ -374,14 +391,16 @@ install_termux() {
 }
 
 # ==========================================================
-# Branche DEBIAN / glibc
+# Branche glibc (Debian/Ubuntu, RHEL/Rocky/Fedora)
 # ==========================================================
 
 # Confort uniquement : git est déjà garanti par le preflight, unzip ne sert
-# qu'aux polices GUI. Sauté sans sudo (non bloquant).
-install_apt_packages() {
+# qu'aux polices GUI. Sauté sans gestionnaire/sans sudo (non bloquant).
+install_system_extras() {
+  [[ -n "$PKG" ]] || return 0
   [[ -n "$SUDO" || "$(id -u)" -eq 0 ]] || return 0
-  $SUDO apt-get install -y unzip || true
+  check_cmd unzip && return 0
+  $SUDO "$PKG" install -y unzip || true
 }
 
 install_nerd_font_gui() {
@@ -503,9 +522,10 @@ install_go_glibc() {
   rm -f "$tmp"
 }
 
-# alacritty : pas de binaire standalone officiel -> reste apt (PPA, GUI).
-# Nécessite sudo ; sauté sinon.
+# alacritty : pas de binaire standalone officiel -> PPA apt (Debian/Ubuntu, GUI).
+# Hors apt (RHEL…) ou sans sudo : sauté (un serveur n'a de toute façon pas de GUI).
 install_alacritty_gui() {
+  [[ "$PKG" == "apt-get" ]] || return 0
   [[ -n "$SUDO" || "$(id -u)" -eq 0 ]] || return 0
   if has_gui && ! check_cmd alacritty; then
     $SUDO apt-get install -y software-properties-common || return 0
@@ -522,10 +542,10 @@ deploy_alacritty_config() {
   fi
 }
 
-install_debian() {
+install_glibc() {
   mkdir -p "$HOME/.local/bin"
 
-  install_apt_packages
+  install_system_extras
 
   brick fish - deploy_fish_config install_fish_glibc
   brick fzf - - install_fzf_glibc
@@ -533,7 +553,7 @@ install_debian() {
   brick zoxide - - install_zoxide_glibc
   brick keychain - - install_keychain
   brick go - - install_go_glibc
-  brick hx - deploy_helix_debian install_helix_glibc
+  brick hx - deploy_helix_glibc install_helix_glibc
   brick nvim "Install neovim?" deploy_nvim_config install_nvim_glibc
   brick zellij - deploy_zellij_config install_zellij_glibc
   brick sshm - - install_sshm_glibc
@@ -551,19 +571,132 @@ install_debian() {
 # Main
 # ==========================================================
 
-main() {
-  detect_env
-
-  export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$HOME/go/bin:$PATH"
-
+# Installe toute la config (comportement par défaut, sans argument).
+install_all() {
   preflight
   clone_or_update_repo
 
   if [[ "$IS_TERMUX" -eq 1 ]]; then
     install_termux
   else
-    install_debian
+    install_glibc
   fi
+}
+
+# Termux -> paquet `pkg` ; glibc -> fonction de build user-local.
+# $1 = nom du paquet termux ; $2 = fonction d'install glibc.
+pkg_or_build() {
+  if [[ "$IS_TERMUX" -eq 1 ]]; then
+    pkg install -y "$1"
+  else
+    "$2"
+  fi
+}
+
+# install.sh install <outil> : (ré)installe un seul outil en user-local.
+# Les shells (fish) sont volontairement exclus -> install complète seulement.
+cmd_install() {
+  need_cmd curl
+  case "${1:-}" in
+    zellij)   pkg_or_build zellij   install_zellij_glibc;  deploy_zellij_config ;;
+    lazygit)  pkg_or_build lazygit  install_lazygit_glibc; deploy_lazygit_config ;;
+    fzf)      pkg_or_build fzf      install_fzf_glibc ;;
+    eza)      pkg_or_build eza      install_eza_glibc ;;
+    zoxide)   pkg_or_build zoxide   install_zoxide_glibc ;;
+    keychain) pkg_or_build keychain install_keychain ;;
+    go)       pkg_or_build golang   install_go_glibc ;;
+    nvim)     pkg_or_build neovim   install_nvim_glibc; deploy_nvim_config ;;
+    sshm)
+      if [[ "$IS_TERMUX" -eq 1 ]]; then
+        need_cmd go; go install github.com/Gu1llaum-3/sshm@latest
+      else
+        install_sshm_glibc
+      fi
+      ;;
+    ghq)      need_cmd go; go install github.com/x-motemen/ghq@latest ;;
+    hx)
+      if [[ "$IS_TERMUX" -eq 1 ]]; then
+        pkg install -y helix; deploy_helix_termux
+      else
+        install_helix_glibc; deploy_helix_glibc
+      fi
+      ;;
+    fish|zsh) echo "shell exclu (risque de lockout) : passe par l'install complète." >&2; exit 1 ;;
+    *) echo "usage: install.sh install <zellij|lazygit|fzf|eza|zoxide|keychain|go|nvim|sshm|ghq|hx>" >&2; exit 1 ;;
+  esac
+}
+
+# Retire un binaire des emplacements user-local connus (~/.local/bin, ~/go/bin).
+rm_user_bin() {
+  local bin="$1" found=0 dir
+  for dir in "$HOME/.local/bin" "$HOME/go/bin"; do
+    if [[ -e "$dir/$bin" || -L "$dir/$bin" ]]; then
+      rm -f "$dir/$bin"; echo "retiré : $dir/$bin"; found=1
+    fi
+  done
+  [[ "$found" -eq 1 ]] || echo "déjà absent : $bin"
+}
+
+# Retire un binaire user-local + ses symlinks de config (jamais un vrai fichier).
+# $1 = nom du binaire ; $2... = liens de config à retirer.
+uninstall_local() {
+  local bin="$1"; shift
+  rm_user_bin "$bin"
+  local link
+  for link in "$@"; do
+    [[ -L "$link" ]] && { rm -f "$link"; echo "retiré : $link"; }
+  done
+}
+
+# install.sh uninstall <outil> : retire la version user-local. Les paquets
+# système (apt/dnf/pkg), c'est le rôle de uninstall.sh. Shells exclus (lockout).
+cmd_uninstall() {
+  local f dir
+  case "${1:-}" in
+    zellij)   uninstall_local zellij   "$HOME/.config/zellij/config.kdl" ;;
+    lazygit)  uninstall_local lazygit  "$HOME/.config/lazygit/config.yml" ;;
+    fzf)      uninstall_local fzf ;;
+    eza)      uninstall_local eza ;;
+    zoxide)   uninstall_local zoxide ;;
+    keychain) uninstall_local keychain ;;
+    sshm)     uninstall_local sshm ;;
+    ghq)      uninstall_local ghq ;;
+    go)
+      if [[ -d "$HOME/.local/go" ]]; then
+        rm -rf "$HOME/.local/go"; echo "retiré : ~/.local/go (toolchain Go ; ~/go/bin conservé)"
+      else
+        echo "déjà absent : ~/.local/go"
+      fi
+      ;;
+    nvim)
+      uninstall_local nvim "$HOME/.config/nvim/init.lua"
+      for dir in "$HOME/.local/lib/nvim" "$HOME/.local/share/nvim"; do
+        [[ -d "$dir" ]] && { rm -rf "$dir"; echo "retiré : $dir"; }
+      done
+      ;;
+    hx)
+      uninstall_local hx
+      for f in "$HOME"/.config/helix/*; do
+        [[ -L "$f" ]] && { rm -f "$f"; echo "retiré : $f"; }
+      done
+      [[ -d "$HOME/.config/helix/runtime" ]] && { rm -rf "$HOME/.config/helix/runtime"; echo "retiré : ~/.config/helix/runtime"; }
+      ;;
+    fish|zsh) echo "shell exclu (risque de lockout) : utilise uninstall.sh ou retire-le à la main." >&2; exit 1 ;;
+    *) echo "usage: install.sh uninstall <zellij|lazygit|fzf|eza|zoxide|keychain|go|nvim|sshm|ghq|hx>" >&2; exit 1 ;;
+  esac
+}
+
+main() {
+  detect_env
+
+  export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$HOME/go/bin:$PATH"
+
+  case "${1:-}" in
+    "")        install_all ;;
+    install)   shift; cmd_install   "$@" ;;
+    uninstall) shift; cmd_uninstall "$@" ;;
+    *) echo "usage: install.sh [install <outil> | uninstall <outil>]" >&2; exit 1 ;;
+  esac
 }
 
 main "$@"

@@ -19,3 +19,18 @@ Le fichier [install.sh](https://raw.githubusercontent.com/lamboley/dotfiles/mast
 | Method    | Command                                                                                           |
 | :-------- | :------------------------------------------------------------------------------------------------ |
 | **curl**  | `bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"` |
+
+## Par outil
+
+Installer ou retirer **un seul** outil en user-local, sans relancer toute l'install :
+
+| Action          | Commande                               |
+| :-------------- | :------------------------------------- |
+| Installer       | `install/install.sh install <outil>`   |
+| Retirer (local) | `install/install.sh uninstall <outil>` |
+
+Outils : `zellij`, `lazygit`, `fzf`, `eza`, `zoxide`, `keychain`, `go`, `nvim`, `sshm`, `ghq`, `hx`.
+Les shells (`fish`) sont exclus pour éviter tout lockout.
+
+> `uninstall.sh` reste dédié à la purge des doublons **système** (apt/dnf/pkg),
+> distinct de `install.sh uninstall` qui retire la version **user-local**.
