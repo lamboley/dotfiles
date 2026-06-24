@@ -6,7 +6,7 @@ Ce projet contient mes dotfiles.
 Le fichier [install.sh](https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh) installe, **en user-local (`~/.local`), sans sudo** :
 
 - Le shell `Fish` (plugins via `fisher` : tide, z, fzf.fish).
-- Les outils `fzf`, `eza`, `zoxide`, `keychain`.
+- Les outils `fzf`, `eza`, `zoxide`, `keychain`, `lazygit`.
 - L'éditeur `Helix` (et un `Neovim` minimal).
 - Le multiplexeur `Zellij`.
 - `Golang`, le programme Go `sshm` (+ `ghq`) et une config ssh hardened.

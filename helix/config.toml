@@ -2,3 +2,20 @@ theme = "dracula"
 
 [editor]
 bufferline = "always"
+
+insert-final-newline = true # Déjà à true par défaut, je garde juste pour information. 
+trim-final-newlines = true
+trim-trailing-whitespace = true
+
+[keys.normal]
+# Permet d'ouvrir Yazi dans Helix.
+# [1]: https://yazi-rs.github.io/docs/tips/#helix
+C-y = [
+  ':sh rm -f /tmp/unique-ca1ea106',
+  ':insert-output yazi "%{buffer_name}" --chooser-file=/tmp/unique-ca1ea106',
+  ':sh printf "\x1b[?1049h\x1b[?2004h" > /dev/tty',
+  ':open %sh{cat /tmp/unique-ca1ea106}',
+  ':redraw',
+  ':set mouse false',
+  ':set mouse true',
+]

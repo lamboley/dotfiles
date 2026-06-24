@@ -13,11 +13,11 @@ function keychain-add --description "Ajoute une clé SSH dans l'agent via keycha
         echo "    -l    Liste les clés SSH disponibles dans \$HOME/.ssh."
         echo "    <clé> Nom de la clé à charger (défaut: id_ed25519)."
         return
+    else
+        set -l key id_ed25519
+        test -n "$argv[1]"; and set key $argv[1]
+        keychain $key
+        set -l kf $HOME/.keychain/(hostname)-fish
+        test -e $kf; and source $kf
     end
-
-    set -l key id_ed25519
-    test -n "$argv[1]"; and set key $argv[1]
-    keychain $key
-    set -l kf $HOME/.keychain/(hostname)-fish
-    test -e $kf; and source $kf
 end

@@ -1,0 +1,15 @@
+# lazygit — https://github.com/jesseduffield/lazygit/blob/master/docs/Config.md
+
+gui:
+  nerdFontsVersion: "3" # FiraCode Nerd Font est installée -> icônes.
+  showFileTree: true # arbre de fichiers plutôt que liste à plat.
+  showRandomTip: false
+  showCommandLog: false # masque le panneau de log en bas.
+  border: rounded
+  skipRewordInEditorWarning: true
+os:
+  editPreset: "helix" # ouvre les fichiers (touche `e`) dans Helix.
+git:
+  pagers:
+    - colorArg: always
+  parseEmoji: true

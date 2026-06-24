@@ -257,6 +257,11 @@ deploy_zellij_config() {
   ln -sf "$DOTFILES/zellij/config.kdl" "$HOME/.config/zellij/config.kdl"
 }
 
+deploy_lazygit_config() {
+  mkdir -p "$HOME/.config/lazygit"
+  ln -sf "$DOTFILES/lazygit/config.yml" "$HOME/.config/lazygit/config.yml"
+}
+
 setup_ssh() {
   mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 700 "$HOME/.ssh" "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
@@ -341,6 +346,7 @@ install_termux() {
   brick go - - pkg install -y golang
   brick hx - deploy_helix_termux pkg install -y helix
   brick nvim "Install neovim?" deploy_nvim_config pkg install -y neovim
+  brick lazygit - deploy_lazygit_config pkg install -y lazygit
   if check_cmd go; then
     brick sshm - - go install github.com/Gu1llaum-3/sshm@latest
     brick ghq "Install ghq?" - go install github.com/x-motemen/ghq@latest
@@ -469,6 +475,15 @@ install_sshm_glibc() {
   EXTRACT_BIN=sshm fetch_and_install "$url" extract_single_bin
 }
 
+# lazygit : binaire unique (.tar.gz, chaîne Go ; asset linux minuscule) -> ~/.local/bin.
+install_lazygit_glibc() {
+  check_cmd lazygit && return 0
+  local tag; tag="$(need_tag jesseduffield/lazygit lazygit)" || return 1
+  EXTRACT_BIN=lazygit fetch_and_install \
+    "https://github.com/jesseduffield/lazygit/releases/download/${tag}/lazygit_${tag#v}_linux_${ARCH_ARM64}.tar.gz" \
+    extract_single_bin
+}
+
 # Chaîne Go -> ~/.local/go (besoin de ~/.local/go/bin dans le PATH).
 install_go_glibc() {
   check_cmd go && return 0
@@ -522,6 +537,7 @@ install_debian() {
   brick nvim "Install neovim?" deploy_nvim_config install_nvim_glibc
   brick zellij - deploy_zellij_config install_zellij_glibc
   brick sshm - - install_sshm_glibc
+  brick lazygit - deploy_lazygit_config install_lazygit_glibc
   brick ghq "Install ghq?" - go install github.com/x-motemen/ghq@latest
   if has_gui; then
     brick alacritty "Install alacritty?" deploy_alacritty_config install_alacritty_gui
