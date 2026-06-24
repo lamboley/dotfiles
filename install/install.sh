@@ -20,6 +20,7 @@ ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64    (sshm, lazygit)
 ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64    (chaîne Go)
 SUDO=""
 PKG=""           # gestionnaire de paquets hôte : apt-get / dnf / yum (extras)
+VERBOSE="${VERBOSE:-0}"   # VERBOSE=1 -> montre la sortie brute des commandes (debug)
 TMP_FILES=()     # fichiers mktemp à supprimer en sortie (safe Ctrl-C)
 
 cleanup() {
@@ -31,6 +32,26 @@ trap cleanup EXIT
 # ==========================================================
 # Utilitaires
 # ==========================================================
+
+# Couleurs (désactivées si la sortie n'est pas un terminal).
+if [[ -t 1 ]]; then
+  C_STEP=$'\033[1;36m'; C_OK=$'\033[1;32m'; C_DIM=$'\033[2m'; C_WARN=$'\033[1;33m'; C_OFF=$'\033[0m'
+else
+  C_STEP=""; C_OK=""; C_DIM=""; C_WARN=""; C_OFF=""
+fi
+
+# Lignes de progression lisibles (toujours affichées).
+say()  { printf '%s▸%s %s\n'   "$C_STEP" "$C_OFF" "$*"; }
+ok()   { printf '  %s✓%s %s\n' "$C_OK"   "$C_OFF" "$*"; }
+skip() { printf '  %s•%s %s\n' "$C_DIM"  "$C_OFF" "$*"; }
+warn() { printf '  %s⚠%s %s\n' "$C_WARN" "$C_OFF" "$*" >&2; }
+
+# Lance une commande en masquant sa sortie ; VERBOSE=1 la rend visible.
+# À n'utiliser QUE pour des commandes non interactives (jamais sudo/chsh,
+# sinon leur prompt de mot de passe serait masqué).
+quiet() {
+  if [[ "$VERBOSE" == "1" ]]; then "$@"; else "$@" >/dev/null 2>&1; fi
+}
 
 check_cmd() { command -v "$1" >/dev/null 2>&1; }
 
@@ -72,9 +93,13 @@ any_missing() {
 # $1 = commande ; $2 = prompt ("-" = sans demander) ; $3 = fn déploiement ("-" = aucune) ; $4... = commande d'install
 brick() {
   local cmd="$1" prompt="$2" deploy_fn="$3"; shift 3
-  if ! check_cmd "$cmd"; then
-    [[ "$prompt" == "-" ]] || ask "$prompt" || return 0
-    "$@" || true
+  if check_cmd "$cmd"; then
+    skip "$cmd déjà présent"
+  else
+    [[ "$prompt" == "-" ]] || ask "$prompt" || { skip "$cmd ignoré"; return 0; }
+    say "installation de $cmd…"
+    quiet "$@" || true
+    if check_cmd "$cmd"; then ok "$cmd installé"; else warn "$cmd : échec (relance avec VERBOSE=1)"; fi
   fi
   if check_cmd "$cmd" && [[ "$deploy_fn" != "-" ]]; then
     "$deploy_fn"
@@ -108,7 +133,7 @@ fetch_and_install() {
   local url="$1" extract_fn="$2"
   local tmp; tmp="$(mktemp)"
   TMP_FILES+=("$tmp")
-  if ! curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o "$tmp" "$url"; then
+  if ! curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors -o "$tmp" "$url"; then
     rm -f "$tmp"; return 1
   fi
   "$extract_fn" "$tmp" || { rm -f "$tmp"; return 1; }
@@ -201,9 +226,12 @@ clone_or_update_repo() {
       echo "Uncommitted changes in $DOTFILES." >&2
       exit 1
     fi
-    ensure git -C "$DOTFILES" pull --rebase origin master
+    say "mise à jour du dépôt dotfiles…"
+    quiet git -C "$DOTFILES" pull --rebase origin master || warn "git pull a échoué (VERBOSE=1 pour les détails)"
   else
-    ensure git clone --depth=1 "$REPO" "$DOTFILES"
+    say "clonage du dépôt dotfiles…"
+    quiet git clone --depth=1 "$REPO" "$DOTFILES" \
+      || { echo "git clone failed (VERBOSE=1 pour les détails)" >&2; exit 1; }
   fi
 }
 
@@ -239,13 +267,14 @@ deploy_fish_config() {
 # (tide, z). Non-fatal : réseau requis au 1er passage.
 install_fisher() {
   check_cmd fish || return 0
-  fish -c '
+  say "fisher + plugins fish (tide, z)…"
+  quiet fish -c '
     if not functions -q fisher
       curl -sSL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
       fisher install jorgebucaran/fisher
     end
     fisher update
-  ' || true
+  ' || warn "fisher a échoué (réseau ? relance avec VERBOSE=1)"
 }
 
 # Déploie la config helix + ses language servers (gopls, bash-ls).
@@ -270,6 +299,7 @@ deploy_lazygit_config() {
 }
 
 setup_ssh() {
+  say "configuration SSH…"
   mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 700 "$HOME/.ssh" "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 600 "$DOTFILES/ssh/config"
@@ -297,10 +327,28 @@ set_default_shell() {
   # `usermod` édite /etc/passwd directement (root) : pas de PAM, pas de
   # restriction "shell courant absent de /etc/shells". Plus fiable que
   # `chsh` quand sudo est dispo. Sans sudo, fallback sur chsh interactif.
-  if [[ -n "$SUDO" ]] && check_cmd usermod; then
-    $SUDO usermod -s "$fishbin" "$(id -un)" || true
+  if [[ "$IS_TERMUX" -eq 1 ]]; then
+    # Termux : chsh attend le NOM du shell (fish), PAS le chemin complet ;
+    # fish est déjà inscrit dans $PREFIX/etc/shells par `pkg install fish`.
+    if chsh -s fish; then
+      ok "shell changé en fish (chsh)"
+    else
+      warn "chsh a échoué. Relance à la main : chsh -s fish"
+    fi
+  elif [[ -n "$SUDO" ]] && check_cmd usermod; then
+    # glibc + root : usermod édite /etc/passwd, plus fiable que chsh (pas de PAM).
+    if $SUDO usermod -s "$fishbin" "$(id -un)"; then
+      ok "shell changé en fish (usermod)"
+    else
+      warn "usermod a échoué — à la main : sudo usermod -s $fishbin $(id -un)"
+    fi
+  elif chsh -s "$fishbin"; then
+    ok "shell changé en fish (chsh)"
   else
-    chsh -s "$fishbin" || true
+    # chsh échoue souvent si le shell n'est pas dans /etc/shells ou sans droits :
+    # on propose la commande root équivalente, qui contourne ces restrictions.
+    warn "chsh a échoué. Pour forcer le changement (root requis), lance :"
+    printf '      sudo usermod -s %s %s\n' "$fishbin" "$(id -un)" >&2
   fi
 }
 
@@ -328,21 +376,24 @@ install_helix_lsp() {
   fi
 
   if check_cmd go && ! check_cmd gopls; then
-    go install golang.org/x/tools/gopls@latest || true
+    say "LSP Go (gopls)…"
+    quiet go install golang.org/x/tools/gopls@latest || warn "gopls : échec"
   fi
 
   if ! check_cmd bash-language-server; then
     if ! check_cmd npm && ask "bash-language-server requires Node.js. Install it?"; then
+      say "Node.js (pour le LSP bash)…"
       if [[ "$1" == "pkg" ]]; then
-        pkg install -y nodejs || true      # Termux : node natif (tarball glibc incompatible)
+        quiet pkg install -y nodejs || true      # Termux : node natif (tarball glibc incompatible)
       else
-        install_node_glibc || true         # glibc : node user-local depuis nodejs.org
+        quiet install_node_glibc || true         # glibc : node user-local depuis nodejs.org
       fi
     fi
     # Install global dans ~/.local (sans sudo) ; non-fatal - c'est un confort.
     if check_cmd npm; then
+      say "LSP Bash (bash-language-server)…"
       mkdir -p "$HOME/.local/bin" "$HOME/.local/lib"
-      npm install -g --prefix "$HOME/.local" bash-language-server || true
+      quiet npm install -g --prefix "$HOME/.local" bash-language-server || warn "bash-language-server : échec"
     fi
   fi
 }
@@ -352,12 +403,13 @@ install_helix_lsp() {
 # ==========================================================
 
 install_termux() {
-  # Prérequis (sans demander).
-  ensure pkg install -y git unzip openssh
+  say "prérequis Termux (git, unzip, openssh)…"
+  ensure quiet pkg install -y git unzip openssh
 
   # Outils de base - installés sans demander sur tous les OS.
   if any_missing zoxide; then
-    pkg install -y zoxide || true
+    say "zoxide…"
+    quiet pkg install -y zoxide || true
   fi
   brick fish - deploy_fish_config pkg install -y fish
   brick zellij - deploy_zellij_config pkg install -y zellij
@@ -370,7 +422,8 @@ install_termux() {
 
   # ssh-agent persistant via termux-services.
   if ! check_cmd sv-enable && ask "Enable a persistent ssh-agent (termux-services)?"; then
-    pkg install -y termux-services || true
+    say "termux-services (ssh-agent persistant)…"
+    quiet pkg install -y termux-services || true
     if check_cmd sv-enable; then
       sv-enable ssh-agent 2>/dev/null || true
     fi
@@ -378,8 +431,9 @@ install_termux() {
 
   # Nerd Font = réglage app Termux (~/.termux/font.ttf).
   if [[ ! -f "$HOME/.termux/font.ttf" ]]; then
+    say "police FiraCode Nerd Font (Termux)…"
     mkdir -p "$HOME/.termux"
-    curl -fL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
+    quiet curl -fsSL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
       "https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFont-Regular.ttf" || true
     if [[ -f "$HOME/.termux/font.ttf" ]] && check_cmd termux-reload-settings; then
       termux-reload-settings
@@ -399,17 +453,20 @@ install_system_extras() {
   [[ -n "$PKG" ]] || return 0
   [[ -n "$SUDO" || "$(id -u)" -eq 0 ]] || return 0
   check_cmd unzip && return 0
-  $SUDO "$PKG" install -y unzip || true
+  say "unzip (polices GUI) via $PKG…"   # sudo : stdout masqué, stderr/prompt gardés
+  $SUDO "$PKG" install -y unzip >/dev/null || warn "unzip : échec"
 }
 
 install_nerd_font_gui() {
   if has_gui && [[ ! -f "$HOME/.local/share/fonts/FiraCodeNerdFont-Regular.ttf" ]]; then
+    say "police FiraCode Nerd Font…"
     mkdir -p "$HOME/.local/share/fonts"
-    curl -fsSL -o /tmp/FiraCode.zip \
-      https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
-    unzip -o /tmp/FiraCode.zip -d "$HOME/.local/share/fonts"
+    quiet curl -fsSL -o /tmp/FiraCode.zip \
+      https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip \
+      || { warn "téléchargement police : échec"; return 0; }
+    quiet unzip -o /tmp/FiraCode.zip -d "$HOME/.local/share/fonts" || true
     rm -f /tmp/FiraCode.zip
-    fc-cache -f
+    quiet fc-cache -f || true
   fi
 }
 
@@ -485,7 +542,7 @@ install_go_glibc() {
   local file="${ver}.linux-${ARCH_GO}.tar.gz"
   local tmp; tmp="$(mktemp)"
   TMP_FILES+=("$tmp")
-  if ! curl -fL --retry 3 --retry-delay 2 --retry-all-errors -o "$tmp" \
+  if ! curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors -o "$tmp" \
     "https://go.dev/dl/${file}"; then
     rm -f "$tmp"; return 1
   fi
@@ -501,10 +558,11 @@ install_alacritty_gui() {
   [[ "$PKG" == "apt-get" ]] || return 0
   [[ -n "$SUDO" || "$(id -u)" -eq 0 ]] || return 0
   if has_gui && ! check_cmd alacritty; then
-    $SUDO apt-get install -y software-properties-common || return 0
-    $SUDO add-apt-repository -y ppa:aslatter/ppa || return 0
-    $SUDO apt-get update -qq || true
-    $SUDO apt-get install -y alacritty || true
+    say "alacritty (PPA apt)…"   # sudo : stdout masqué, stderr/prompt gardés
+    $SUDO apt-get install -y software-properties-common >/dev/null || return 0
+    $SUDO add-apt-repository -y ppa:aslatter/ppa >/dev/null || return 0
+    $SUDO apt-get update -qq >/dev/null || true
+    $SUDO apt-get install -y alacritty >/dev/null || warn "alacritty : échec"
   fi
 }
 
@@ -550,6 +608,8 @@ install_all() {
   else
     install_glibc
   fi
+
+  ok "installation terminée — ouvre un nouveau terminal pour démarrer fish."
 }
 
 # Termux -> paquet `pkg` ; glibc -> fonction de build user-local.
