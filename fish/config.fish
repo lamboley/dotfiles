@@ -26,12 +26,6 @@ if status is-interactive
     alias grep='grep --color=auto'
     alias sshm='sshm -c ~/.ssh/config'
 
-    if command -q eza
-        alias ls='eza --icons'
-        alias ll='eza -la --icons --git'
-        alias lt='eza -la --icons --sort newest'
-    else
-        alias ll='ls -la'
-        alias lt='ls -lrt'
-    end
+    alias ll='ls -la'
+    alias lt='ls -lrt'
 end

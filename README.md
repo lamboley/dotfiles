@@ -5,11 +5,11 @@
 Ce projet contient mes dotfiles.
 Le fichier [install.sh](https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh) installe, **en user-local (`~/.local`), sans sudo** :
 
-- Le shell `Fish` (plugins via `fisher` : tide, z, fzf.fish).
-- Les outils `fzf`, `eza`, `zoxide`, `keychain`, `lazygit`.
-- L'éditeur `Helix` (et un `Neovim` minimal).
+- Le shell `Fish` (plugins via `fisher` : tide, z).
+- Les outils `zoxide`, `keychain`, `lazygit`.
+- L'éditeur `Helix`.
 - Le multiplexeur `Zellij`.
-- `Golang`, le programme Go `sshm` (+ `ghq`) et une config ssh hardened.
+- `Golang`, le programme Go `sshm` et une config ssh.
 - La font `FiraCode Nerd Font` et le terminal `Alacritty` (GUI).
 
 ## Installation
@@ -29,8 +29,5 @@ Installer ou retirer **un seul** outil en user-local, sans relancer toute l'inst
 | Installer       | `install/install.sh install <outil>`   |
 | Retirer (local) | `install/install.sh uninstall <outil>` |
 
-Outils : `zellij`, `lazygit`, `fzf`, `eza`, `zoxide`, `keychain`, `go`, `nvim`, `sshm`, `ghq`, `hx`.
+Outils : `zellij`, `lazygit`, `zoxide`, `keychain`, `go`, `sshm`, `hx`.
 Les shells (`fish`) sont exclus pour éviter tout lockout.
-
-> `uninstall.sh` reste dédié à la purge des doublons **système** (apt/dnf/pkg),
-> distinct de `install.sh uninstall` qui retire la version **user-local**.

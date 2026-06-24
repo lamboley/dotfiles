@@ -16,7 +16,7 @@ REPO="https://github.com/lamboley/dotfiles.git"
 
 IS_TERMUX=0
 ARCH=""          # uname -m brut : x86_64 / aarch64       (helix, zellij)
-ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64    (sshm, nvim)
+ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64    (sshm, lazygit)
 ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64    (chaîne Go)
 SUDO=""
 PKG=""           # gestionnaire de paquets hôte : apt-get / dnf / yum (extras)
@@ -136,12 +136,6 @@ extract_helix() {
   rm -rf "$dir"
 }
 
-# nvim : tarball prefix (bin/ + lib/ + share/) déballé dans ~/.local.
-extract_nvim() {
-  mkdir -p "$HOME/.local"
-  tar -C "$HOME/.local" --strip-components=1 -xzf "$1"
-}
-
 # fish : binaire unique auto-contenu (tar.xz) -> ~/.local/bin.
 extract_fish() {
   mkdir -p "$HOME/.local/bin"
@@ -218,13 +212,6 @@ deploy_editor_configs() {
   done
 }
 
-# Lie nvim/init.lua du dépôt dans ~/.config/nvim/.
-deploy_nvim_config() {
-  mkdir -p "$HOME/.config/nvim"
-  backup_if_real "$HOME/.config/nvim/init.lua"
-  ln -sf "$DOTFILES/nvim/init.lua" "$HOME/.config/nvim/init.lua"
-}
-
 # Config fish (shell principal) : config + fonctions + plugins (fisher).
 deploy_fish_config() {
   mkdir -p "$HOME/.config/fish/functions"
@@ -240,7 +227,7 @@ deploy_fish_config() {
 }
 
 # fisher (gestionnaire de plugins fish) + installe ceux du fish_plugins
-# (tide, z, fzf.fish). Non-fatal : réseau requis au 1er passage.
+# (tide, z). Non-fatal : réseau requis au 1er passage.
 install_fisher() {
   check_cmd fish || return 0
   fish -c '
@@ -276,8 +263,7 @@ deploy_lazygit_config() {
 setup_ssh() {
   mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
   chmod 700 "$HOME/.ssh" "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
-  chmod 600 "$DOTFILES/ssh/config" "$DOTFILES/ssh/hardening.conf"
-  ln -sf "$DOTFILES/ssh/hardening.conf" "$HOME/.ssh/hardening.conf"
+  chmod 600 "$DOTFILES/ssh/config"
 
   if [[ -z "$(ls -A "$HOME/.ssh/config.d" 2>/dev/null)" ]]; then
     cp "$DOTFILES/ssh/config.d/00-example.conf" "$HOME/.ssh/config.d/00-example.conf"
@@ -355,18 +341,16 @@ install_termux() {
   ensure pkg install -y git unzip openssh
 
   # Outils de base - installés sans demander sur tous les OS.
-  if any_missing fzf eza zoxide; then
-    pkg install -y fzf eza zoxide || true
+  if any_missing zoxide; then
+    pkg install -y zoxide || true
   fi
   brick fish - deploy_fish_config pkg install -y fish
   brick zellij - deploy_zellij_config pkg install -y zellij
   brick go - - pkg install -y golang
   brick hx - deploy_helix_termux pkg install -y helix
-  brick nvim "Install neovim?" deploy_nvim_config pkg install -y neovim
   brick lazygit - deploy_lazygit_config pkg install -y lazygit
   if check_cmd go; then
     brick sshm - - go install github.com/Gu1llaum-3/sshm@latest
-    brick ghq "Install ghq?" - go install github.com/x-motemen/ghq@latest
   fi
 
   # ssh-agent persistant via termux-services.
@@ -422,14 +406,6 @@ install_helix_glibc() {
     extract_helix
 }
 
-install_nvim_glibc() {
-  check_cmd nvim && return 0
-  local tag; tag="$(need_tag neovim/neovim nvim)" || return 1
-  fetch_and_install \
-    "https://github.com/neovim/neovim/releases/download/${tag}/nvim-linux-${ARCH_ARM64}.tar.gz" \
-    extract_nvim
-}
-
 # fish : binaire standalone GitHub -> ~/.local/bin (asset = uname -m brut).
 install_fish_glibc() {
   check_cmd fish && return 0
@@ -437,24 +413,6 @@ install_fish_glibc() {
   fetch_and_install \
     "https://github.com/fish-shell/fish-shell/releases/download/${tag}/fish-${tag}-linux-${ARCH}.tar.xz" \
     extract_fish
-}
-
-# fzf : binaire unique (.tar.gz, chaîne Go amd64/arm64) -> ~/.local/bin.
-install_fzf_glibc() {
-  check_cmd fzf && return 0
-  local tag; tag="$(need_tag junegunn/fzf fzf)" || return 1
-  EXTRACT_BIN=fzf fetch_and_install \
-    "https://github.com/junegunn/fzf/releases/download/${tag}/fzf-${tag#v}-linux_${ARCH_GO}.tar.gz" \
-    extract_single_bin
-}
-
-# eza : binaire unique (membre ./eza, asset gnu) -> ~/.local/bin.
-install_eza_glibc() {
-  check_cmd eza && return 0
-  local tag; tag="$(need_tag eza-community/eza eza)" || return 1
-  EXTRACT_BIN=./eza fetch_and_install \
-    "https://github.com/eza-community/eza/releases/download/${tag}/eza_${ARCH}-unknown-linux-gnu.tar.gz" \
-    extract_single_bin
 }
 
 # zoxide : binaire zoxide seul (man/complétions du tarball ignorés) -> ~/.local/bin.
@@ -548,17 +506,13 @@ install_glibc() {
   install_system_extras
 
   brick fish - deploy_fish_config install_fish_glibc
-  brick fzf - - install_fzf_glibc
-  brick eza - - install_eza_glibc
   brick zoxide - - install_zoxide_glibc
   brick keychain - - install_keychain
   brick go - - install_go_glibc
   brick hx - deploy_helix_glibc install_helix_glibc
-  brick nvim "Install neovim?" deploy_nvim_config install_nvim_glibc
   brick zellij - deploy_zellij_config install_zellij_glibc
   brick sshm - - install_sshm_glibc
   brick lazygit - deploy_lazygit_config install_lazygit_glibc
-  brick ghq "Install ghq?" - go install github.com/x-motemen/ghq@latest
   if has_gui; then
     brick alacritty "Install alacritty?" deploy_alacritty_config install_alacritty_gui
     install_nerd_font_gui || true
@@ -600,12 +554,9 @@ cmd_install() {
   case "${1:-}" in
     zellij)   pkg_or_build zellij   install_zellij_glibc;  deploy_zellij_config ;;
     lazygit)  pkg_or_build lazygit  install_lazygit_glibc; deploy_lazygit_config ;;
-    fzf)      pkg_or_build fzf      install_fzf_glibc ;;
-    eza)      pkg_or_build eza      install_eza_glibc ;;
     zoxide)   pkg_or_build zoxide   install_zoxide_glibc ;;
     keychain) pkg_or_build keychain install_keychain ;;
     go)       pkg_or_build golang   install_go_glibc ;;
-    nvim)     pkg_or_build neovim   install_nvim_glibc; deploy_nvim_config ;;
     sshm)
       if [[ "$IS_TERMUX" -eq 1 ]]; then
         need_cmd go; go install github.com/Gu1llaum-3/sshm@latest
@@ -613,7 +564,6 @@ cmd_install() {
         install_sshm_glibc
       fi
       ;;
-    ghq)      need_cmd go; go install github.com/x-motemen/ghq@latest ;;
     hx)
       if [[ "$IS_TERMUX" -eq 1 ]]; then
         pkg install -y helix; deploy_helix_termux
@@ -622,7 +572,7 @@ cmd_install() {
       fi
       ;;
     fish|zsh) echo "shell exclu (risque de lockout) : passe par l'install complète." >&2; exit 1 ;;
-    *) echo "usage: install.sh install <zellij|lazygit|fzf|eza|zoxide|keychain|go|nvim|sshm|ghq|hx>" >&2; exit 1 ;;
+    *) echo "usage: install.sh install <zellij|lazygit|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
   esac
 }
 
@@ -648,31 +598,22 @@ uninstall_local() {
   done
 }
 
-# install.sh uninstall <outil> : retire la version user-local. Les paquets
-# système (apt/dnf/pkg), c'est le rôle de uninstall.sh. Shells exclus (lockout).
+# install.sh uninstall <outil> : retire la version user-local (binaire +
+# symlinks de config). Shells exclus pour éviter le lockout.
 cmd_uninstall() {
-  local f dir
+  local f
   case "${1:-}" in
     zellij)   uninstall_local zellij   "$HOME/.config/zellij/config.kdl" ;;
     lazygit)  uninstall_local lazygit  "$HOME/.config/lazygit/config.yml" ;;
-    fzf)      uninstall_local fzf ;;
-    eza)      uninstall_local eza ;;
     zoxide)   uninstall_local zoxide ;;
     keychain) uninstall_local keychain ;;
     sshm)     uninstall_local sshm ;;
-    ghq)      uninstall_local ghq ;;
     go)
       if [[ -d "$HOME/.local/go" ]]; then
         rm -rf "$HOME/.local/go"; echo "retiré : ~/.local/go (toolchain Go ; ~/go/bin conservé)"
       else
         echo "déjà absent : ~/.local/go"
       fi
-      ;;
-    nvim)
-      uninstall_local nvim "$HOME/.config/nvim/init.lua"
-      for dir in "$HOME/.local/lib/nvim" "$HOME/.local/share/nvim"; do
-        [[ -d "$dir" ]] && { rm -rf "$dir"; echo "retiré : $dir"; }
-      done
       ;;
     hx)
       uninstall_local hx
@@ -681,8 +622,8 @@ cmd_uninstall() {
       done
       [[ -d "$HOME/.config/helix/runtime" ]] && { rm -rf "$HOME/.config/helix/runtime"; echo "retiré : ~/.config/helix/runtime"; }
       ;;
-    fish|zsh) echo "shell exclu (risque de lockout) : utilise uninstall.sh ou retire-le à la main." >&2; exit 1 ;;
-    *) echo "usage: install.sh uninstall <zellij|lazygit|fzf|eza|zoxide|keychain|go|nvim|sshm|ghq|hx>" >&2; exit 1 ;;
+    fish|zsh) echo "shell exclu (risque de lockout) : retire-le à la main si besoin." >&2; exit 1 ;;
+    *) echo "usage: install.sh uninstall <zellij|lazygit|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
   esac
 }
 
