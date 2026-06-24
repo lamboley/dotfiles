@@ -142,6 +142,15 @@ extract_fish() {
   tar -C "$HOME/.local/bin" -xJf "$1" fish
 }
 
+# node : tarball nodejs.org -> ~/.local (bin/ + lib/ suffisent pour node+npm ;
+# include/share/ et LICENSE/README du tarball ignorés).
+extract_node() {
+  mkdir -p "$HOME/.local"
+  local top; top="$(tar -tJf "$1" 2>/dev/null | head -1 | cut -d/ -f1)"
+  [[ -n "$top" ]] || return 1
+  tar -C "$HOME/.local" --strip-components=1 -xJf "$1" "$top/bin" "$top/lib"
+}
+
 # ==========================================================
 # Détection / preflight
 # ==========================================================
@@ -165,7 +174,7 @@ detect_env() {
   fi
 
   # Gestionnaire de paquets de l'hôte glibc (extras confort/GUI uniquement :
-  # unzip, nodejs, alacritty). Les binaires principaux viennent de GitHub en
+  # unzip, alacritty). Les binaires principaux viennent de GitHub en
   # user-local, indépendamment de la distro. Vide -> ces extras se sautent.
   if [[ "$IS_TERMUX" -eq 0 ]]; then
     if check_cmd apt-get; then PKG="apt-get"
@@ -295,7 +304,24 @@ set_default_shell() {
   fi
 }
 
-# Language servers Helix (Go + Bash). $1 = gestionnaire de paquets (pkg|apt-get|dnf|yum).
+# node : binaires officiels nodejs.org -> ~/.local (glibc ; Termux reste `pkg`).
+install_node_glibc() {
+  check_cmd node && return 0
+  local ver arch
+  ver="$(curl -fsSL https://nodejs.org/dist/index.json 2>/dev/null \
+    | tr '{' '\n' | grep '"lts":"' | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  [[ -n "$ver" ]] || { echo "Failed to resolve Node LTS version" >&2; return 1; }
+  case "$ARCH_GO" in
+    amd64) arch=x64 ;;
+    arm64) arch=arm64 ;;
+    *) return 1 ;;
+  esac
+  fetch_and_install \
+    "https://nodejs.org/dist/${ver}/node-${ver}-linux-${arch}.tar.xz" \
+    extract_node
+}
+
+# Language servers Helix (Go + Bash). $1 = "pkg" (Termux, node natif) sinon glibc.
 install_helix_lsp() {
   if check_cmd gopls && check_cmd bash-language-server; then
     return 0
@@ -307,22 +333,11 @@ install_helix_lsp() {
 
   if ! check_cmd bash-language-server; then
     if ! check_cmd npm && ask "bash-language-server requires Node.js. Install it?"; then
-      case "$1" in
-        pkg)
-          pkg install -y nodejs || true
-          ;;
-        apt-get)
-          if [[ -n "$SUDO" || "$(id -u)" -eq 0 ]]; then
-            $SUDO apt-get install -y nodejs npm || true
-          fi
-          ;;
-        dnf|yum)
-          # npm est fourni avec le paquet nodejs sur RHEL/Rocky/Fedora.
-          if [[ -n "$SUDO" || "$(id -u)" -eq 0 ]]; then
-            $SUDO "$1" install -y nodejs || true
-          fi
-          ;;
-      esac
+      if [[ "$1" == "pkg" ]]; then
+        pkg install -y nodejs || true      # Termux : node natif (tarball glibc incompatible)
+      else
+        install_node_glibc || true         # glibc : node user-local depuis nodejs.org
+      fi
     fi
     # Install global dans ~/.local (sans sudo) ; non-fatal - c'est un confort.
     if check_cmd npm; then
