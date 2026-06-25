@@ -711,10 +711,12 @@ pkg_or_build() {
 }
 
 # install.sh install <outil> : (ré)installe un seul outil en user-local.
-# Les shells (fish) sont volontairement exclus -> install complète seulement.
+# fish est autorisé (installer un shell est sans risque) ; seul `uninstall fish`
+# reste bloqué (lockout). `install fish` (ré)installe + redéploie config/fisher/shell.
 cmd_install() {
   [[ -n "$DL" ]] || { echo "curl ou wget requis" >&2; exit 1; }
   case "${1:-}" in
+    fish)     pkg_or_build fish     install_fish_glibc; deploy_fish_config ;;
     zellij)   pkg_or_build zellij   install_zellij_glibc;  deploy_zellij_config ;;
     lazygit)  pkg_or_build lazygit  install_lazygit_glibc; deploy_lazygit_config ;;
     yazi)     pkg_or_build yazi     install_yazi_glibc ;;
@@ -735,8 +737,7 @@ cmd_install() {
         install_helix_glibc; deploy_helix_glibc
       fi
       ;;
-    fish|zsh) echo "shell exclu (risque de lockout) : passe par l'install complète." >&2; exit 1 ;;
-    *) echo "usage: install.sh install <zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
+    *) echo "usage: install.sh install <fish|zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
   esac
 }
 
