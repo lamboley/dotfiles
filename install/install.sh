@@ -4,6 +4,8 @@
 #
 # Lancer via curl :
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"
+# ou via wget (machine sans curl) :
+#   bash -c "$(wget -qO- https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"
 
 set -euo pipefail
 
@@ -20,6 +22,7 @@ ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64    (sshm, lazygit)
 ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64    (chaîne Go)
 SUDO=""
 PKG=""           # gestionnaire de paquets hôte : apt-get / dnf / yum (extras)
+DL=""            # téléchargeur résolu : curl (préféré) ou wget
 VERBOSE="${VERBOSE:-0}"   # VERBOSE=1 -> montre la sortie brute des commandes (debug)
 TMP_FILES=()     # fichiers mktemp à supprimer en sortie (safe Ctrl-C)
 
@@ -107,10 +110,33 @@ brick() {
   return 0
 }
 
-# Dernier tag de release sans l'API GitHub (pas de rate-limit).
+# Téléchargement : curl (préféré) ou wget en repli ($DL résolu par detect_env).
+# dl_file <url> <fichier> -> télécharge vers un fichier ; dl_stdout <url> -> stdout.
+dl_file() {
+  if [[ "$DL" == "wget" ]]; then
+    wget -q --tries=3 --retry-connrefused -O "$2" "$1"
+  else
+    curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors -o "$2" "$1"
+  fi
+}
+dl_stdout() {
+  if [[ "$DL" == "wget" ]]; then
+    wget -qO- "$1"
+  else
+    curl -fsSL "$1"
+  fi
+}
+
+# Dernier tag de release sans l'API GitHub (pas de rate-limit), via la redirection
+# de /releases/latest. curl lit %{url_effective} ; wget lit l'en-tête Location.
 gh_latest_tag() {
-  curl -fsSLI -o /dev/null -w '%{url_effective}' \
-    "https://github.com/$1/releases/latest" 2>/dev/null | sed -n 's#.*/tag/##p'
+  local url="https://github.com/$1/releases/latest"
+  if [[ "$DL" == "wget" ]]; then
+    wget --max-redirect=0 -S --spider "$url" 2>&1 \
+      | tr -d '\r' | sed -n 's#.*Location:.*/tag/\([^ ]*\).*#\1#p' | head -1
+  else
+    curl -fsSLI -o /dev/null -w '%{url_effective}' "$url" 2>/dev/null | sed -n 's#.*/tag/##p'
+  fi
 }
 
 # Dernier tag ou échec explicite. $1 = owner/repo ; $2 = nom de l'outil. Affiche le tag.
@@ -133,7 +159,7 @@ fetch_and_install() {
   local url="$1" extract_fn="$2"
   local tmp; tmp="$(mktemp)"
   TMP_FILES+=("$tmp")
-  if ! curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors -o "$tmp" "$url"; then
+  if ! dl_file "$url" "$tmp"; then
     rm -f "$tmp"; return 1
   fi
   "$extract_fn" "$tmp" || { rm -f "$tmp"; return 1; }
@@ -232,16 +258,22 @@ detect_env() {
     elif check_cmd yum; then PKG="yum"
     fi
   fi
+
+  # Téléchargeur : curl préféré (plus portable), wget en repli. L'un des deux suffit.
+  if check_cmd curl; then DL="curl"
+  elif check_cmd wget; then DL="wget"
+  fi
 }
 
-# Prérequis de bootstrap (git/curl pour récupérer le dépôt + les binaires).
-# Non installés automatiquement : ils doivent préexister. Si manquants, on
-# liste tout d'un coup et on propose la commande d'install de la plateforme.
+# Prérequis de bootstrap (git + un téléchargeur pour récupérer dépôt + binaires).
+# Non installés automatiquement : ils doivent préexister. Si manquants, on liste
+# tout d'un coup et on propose la commande d'install de la plateforme.
 preflight() {
   local c missing=()
-  for c in curl git uname sed; do
+  for c in git uname sed; do
     check_cmd "$c" || missing+=("$c")
   done
+  [[ -n "$DL" ]] || missing+=("curl")   # ni curl ni wget -> on suggère curl
   [[ ${#missing[@]} -eq 0 ]] && return 0
 
   echo "Commande(s) requise(s) manquante(s) : ${missing[*]}" >&2
@@ -307,7 +339,11 @@ install_fisher() {
   say "fisher + plugins fish (tide, z)…"
   quiet fish -c '
     if not functions -q fisher
-      curl -sSL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
+      if command -q curl
+        curl -sSL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
+      else
+        wget -qO- https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
+      end
       fisher install jorgebucaran/fisher
     end
     fisher update
@@ -393,7 +429,7 @@ set_default_shell() {
 install_node_glibc() {
   check_cmd node && return 0
   local ver arch
-  ver="$(curl -fsSL https://nodejs.org/dist/index.json 2>/dev/null \
+  ver="$(dl_stdout https://nodejs.org/dist/index.json 2>/dev/null \
     | tr '{' '\n' | grep '"lts":"' | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
   [[ -n "$ver" ]] || { echo "Failed to resolve Node LTS version" >&2; return 1; }
   case "$ARCH_GO" in
@@ -471,8 +507,7 @@ install_termux() {
   if [[ ! -f "$HOME/.termux/font.ttf" ]]; then
     say "police FiraCode Nerd Font (Termux)…"
     mkdir -p "$HOME/.termux"
-    quiet curl -fsSL --retry 3 --retry-all-errors -o "$HOME/.termux/font.ttf" \
-      "https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFont-Regular.ttf" || true
+    quiet dl_file "https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFont-Regular.ttf" "$HOME/.termux/font.ttf" || true
     if [[ -f "$HOME/.termux/font.ttf" ]] && check_cmd termux-reload-settings; then
       termux-reload-settings
     fi
@@ -499,8 +534,7 @@ install_nerd_font_gui() {
   if has_gui && [[ ! -f "$HOME/.local/share/fonts/FiraCodeNerdFont-Regular.ttf" ]]; then
     say "police FiraCode Nerd Font…"
     mkdir -p "$HOME/.local/share/fonts"
-    quiet curl -fsSL -o /tmp/FiraCode.zip \
-      https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip \
+    quiet dl_file https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip /tmp/FiraCode.zip \
       || { warn "téléchargement police : échec"; return 0; }
     quiet unzip -o /tmp/FiraCode.zip -d "$HOME/.local/share/fonts" || true
     rm -f /tmp/FiraCode.zip
@@ -542,7 +576,7 @@ install_zoxide_glibc() {
 install_keychain() {
   check_cmd keychain && return 0
   local tag
-  tag="$(curl -fsSL 'https://api.github.com/repos/danielrobbins/keychain/releases?per_page=30' 2>/dev/null \
+  tag="$(dl_stdout 'https://api.github.com/repos/danielrobbins/keychain/releases?per_page=30' 2>/dev/null \
     | grep -oE '"tag_name": *"2\.[0-9]+\.[0-9]+"' | grep -oE '2\.[0-9]+\.[0-9]+' | sort -V | tail -1)"
   [[ -n "$tag" ]] || { echo "Failed to resolve keychain 2.x version" >&2; return 1; }
   fetch_and_install \
@@ -591,13 +625,12 @@ install_yazi_glibc() {
 install_go_glibc() {
   check_cmd go && return 0
   local ver
-  ver="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)"
+  ver="$(dl_stdout 'https://go.dev/VERSION?m=text' | head -n1)"
   [[ -n "$ver" ]] || { echo "Failed to resolve Go version" >&2; return 1; }
   local file="${ver}.linux-${ARCH_GO}.tar.gz"
   local tmp; tmp="$(mktemp)"
   TMP_FILES+=("$tmp")
-  if ! curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors -o "$tmp" \
-    "https://go.dev/dl/${file}"; then
+  if ! dl_file "https://go.dev/dl/${file}" "$tmp"; then
     rm -f "$tmp"; return 1
   fi
   rm -rf "$HOME/.local/go"
@@ -680,7 +713,7 @@ pkg_or_build() {
 # install.sh install <outil> : (ré)installe un seul outil en user-local.
 # Les shells (fish) sont volontairement exclus -> install complète seulement.
 cmd_install() {
-  need_cmd curl
+  [[ -n "$DL" ]] || { echo "curl ou wget requis" >&2; exit 1; }
   case "${1:-}" in
     zellij)   pkg_or_build zellij   install_zellij_glibc;  deploy_zellij_config ;;
     lazygit)  pkg_or_build lazygit  install_lazygit_glibc; deploy_lazygit_config ;;

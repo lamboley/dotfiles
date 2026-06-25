@@ -19,6 +19,7 @@ Le fichier [install.sh](https://raw.githubusercontent.com/lamboley/dotfiles/mast
 | Method    | Command                                                                                           |
 | :-------- | :------------------------------------------------------------------------------------------------ |
 | **curl**  | `bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"` |
+| **wget**  | `bash -c "$(wget -qO- https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"` |
 
 ## Par outil
 
