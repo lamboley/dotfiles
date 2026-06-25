@@ -202,6 +202,13 @@ extract_node() {
   tar -C "$HOME/.local" --strip-components=1 -xJf "$1" "$top/bin" "$top/lib"
 }
 
+# curl : binaire statique stunnel (tarball xz contenant curl + trurl + SHA256SUMS).
+extract_curl() {
+  mkdir -p "$HOME/.local/bin"
+  tar -C "$HOME/.local/bin" -xJf "$1" curl
+  chmod 755 "$HOME/.local/bin/curl"
+}
+
 # yazi : asset .zip (pas de tarball). Le zip contient yazi-<target>/{yazi,ya,…}.
 # unzip pas garanti -> on tente unzip, puis python3 (toujours là sur Rocky/Debian),
 # puis bsdtar. On installe yazi (+ ya s'il est présent) dans ~/.local/bin.
@@ -328,22 +335,49 @@ deploy_fish_config() {
   for f in "$DOTFILES"/fish/functions/*.fish; do
     ln -sf "$f" "$HOME/.config/fish/functions/$(basename "$f")"
   done
+  ensure_curl       # fisher exige curl (pas de repli wget) -> on le garantit
   install_fisher
-  set_default_shell
+  # set_default_shell est déplacé dans install_all (install complète seulement),
+  # pour que `install fish` par-outil reste sans sudo ni prompt.
+}
+
+# curl statique user-local (stunnel/static-curl, musl) quand curl manque.
+# Pas de binaire Linux officiel chez curl -> stunnel est le build de référence.
+install_curl_static() {
+  check_cmd curl && return 0
+  local tag; tag="$(need_tag stunnel/static-curl curl)" || return 1
+  fetch_and_install \
+    "https://github.com/stunnel/static-curl/releases/download/${tag}/curl-linux-${ARCH}-musl-${tag}.tar.xz" \
+    extract_curl
+}
+
+# Garantit curl quand il manque (glibc) : fisher l'exige sans repli wget. On
+# l'amorce via wget, puis $DL bascule sur curl (plus fiable). Termux -> `pkg`.
+ensure_curl() {
+  check_cmd curl && return 0
+  [[ "$IS_TERMUX" -eq 0 && "$DL" == "wget" ]] || return 0
+  say "curl absent -> curl statique user-local (requis par fisher)…"
+  if install_curl_static; then
+    DL="curl"; ok "curl statique installé"
+  else
+    warn "curl statique : échec — plugins fish (tide, z) indisponibles"
+  fi
 }
 
 # fisher (gestionnaire de plugins fish) + installe ceux du fish_plugins
 # (tide, z). Non-fatal : réseau requis au 1er passage.
 install_fisher() {
   check_cmd fish || return 0
+  # fisher (4.x) télécharge ses plugins avec curl EN DUR (pas de repli wget).
+  # Sans curl, on saute proprement plutôt que de cracher une erreur par plugin.
+  if ! check_cmd curl; then
+    warn "fisher nécessite curl (absent) — plugins fish (tide, z) sautés ; installe curl puis relance."
+    return 0
+  fi
   say "fisher + plugins fish (tide, z)…"
   quiet fish -c '
     if not functions -q fisher
-      if command -q curl
-        curl -sSL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
-      else
-        wget -qO- https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
-      end
+      curl -sSL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
       fisher install jorgebucaran/fisher
     end
     fisher update
@@ -476,8 +510,8 @@ install_helix_lsp() {
 # ==========================================================
 
 install_termux() {
-  say "prérequis Termux (git, unzip, openssh)…"
-  ensure quiet pkg install -y git unzip openssh
+  say "prérequis Termux (git, unzip, openssh, curl)…"
+  ensure quiet pkg install -y git unzip openssh curl
 
   # Outils de base - installés sans demander sur tous les OS.
   if any_missing zoxide; then
@@ -697,6 +731,7 @@ install_all() {
     install_glibc
   fi
 
+  set_default_shell   # shell de login (sudo) : install complète uniquement
   ok "installation terminée — ouvre un nouveau terminal pour démarrer fish."
 }
 
@@ -717,6 +752,7 @@ cmd_install() {
   [[ -n "$DL" ]] || { echo "curl ou wget requis" >&2; exit 1; }
   case "${1:-}" in
     fish)     pkg_or_build fish     install_fish_glibc; deploy_fish_config ;;
+    curl)     pkg_or_build curl     install_curl_static ;;
     zellij)   pkg_or_build zellij   install_zellij_glibc;  deploy_zellij_config ;;
     lazygit)  pkg_or_build lazygit  install_lazygit_glibc; deploy_lazygit_config ;;
     yazi)     pkg_or_build yazi     install_yazi_glibc ;;
@@ -737,7 +773,7 @@ cmd_install() {
         install_helix_glibc; deploy_helix_glibc
       fi
       ;;
-    *) echo "usage: install.sh install <fish|zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
+    *) echo "usage: install.sh install <fish|curl|zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
   esac
 }
 
@@ -768,6 +804,7 @@ uninstall_local() {
 cmd_uninstall() {
   local f
   case "${1:-}" in
+    curl)     uninstall_local curl ;;
     zellij)   uninstall_local zellij   "$HOME/.config/zellij/config.kdl" ;;
     lazygit)  uninstall_local lazygit  "$HOME/.config/lazygit/config.yml" ;;
     yazi)     uninstall_local yazi; rm_user_bin ya ;;
@@ -789,7 +826,7 @@ cmd_uninstall() {
       [[ -d "$HOME/.config/helix/runtime" ]] && { rm -rf "$HOME/.config/helix/runtime"; echo "retiré : ~/.config/helix/runtime"; }
       ;;
     fish|zsh) echo "shell exclu (risque de lockout) : retire-le à la main si besoin." >&2; exit 1 ;;
-    *) echo "usage: install.sh uninstall <zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
+    *) echo "usage: install.sh uninstall <curl|zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
   esac
 }
 
