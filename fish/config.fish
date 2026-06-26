@@ -20,7 +20,7 @@ if status is-interactive
     alias g git
     alias c claude
 
-    # Thème tide (prompt) — dracula (blocs current-line + texte vif)
+    # Thème
     set -g tide_pwd_bg_color 44475a
     set -g tide_pwd_color_dirs 8be9fd
     set -g tide_pwd_color_anchors f8f8f2

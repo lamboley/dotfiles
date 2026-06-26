@@ -532,10 +532,6 @@ install_termux() {
     say "zoxide…"
     quiet pkg install -y zoxide || true
   fi
-  if any_missing fzf; then
-    say "fzf…"
-    quiet pkg install -y fzf || true
-  fi
   brick fish - deploy_fish_config pkg install -y fish
   brick zellij - deploy_zellij_config pkg install -y zellij
   brick go - - pkg install -y golang
@@ -619,15 +615,6 @@ install_zoxide_glibc() {
   local tag; tag="$(need_tag ajeetdsouza/zoxide zoxide)" || return 1
   EXTRACT_BIN=zoxide fetch_and_install \
     "https://github.com/ajeetdsouza/zoxide/releases/download/${tag}/zoxide-${tag#v}-${ARCH}-unknown-linux-musl.tar.gz" \
-    extract_single_bin
-}
-
-# fzf : binaire unique (.tar.gz, chaîne Go) -> ~/.local/bin. Requis par fzf.fish.
-install_fzf_glibc() {
-  check_cmd fzf && return 0
-  local tag; tag="$(need_tag junegunn/fzf fzf)" || return 1
-  EXTRACT_BIN=fzf fetch_and_install \
-    "https://github.com/junegunn/fzf/releases/download/${tag}/fzf-${tag#v}-linux_${ARCH_GO}.tar.gz" \
     extract_single_bin
 }
 
@@ -754,7 +741,6 @@ install_glibc() {
 
   install_system_extras
 
-  brick fzf - - install_fzf_glibc
   brick fish - deploy_fish_config install_fish_glibc
   brick zoxide - - install_zoxide_glibc
   brick keychain - - install_keychain
@@ -816,7 +802,6 @@ cmd_install() {
     yazi)     pkg_or_build yazi     install_yazi_glibc ;;
     fd)       pkg_or_build fd       install_fd_glibc ;;
     zoxide)   pkg_or_build zoxide   install_zoxide_glibc ;;
-    fzf)      pkg_or_build fzf      install_fzf_glibc ;;
     keychain) pkg_or_build keychain install_keychain ;;
     go)       pkg_or_build golang   install_go_glibc ;;
     sshm)
@@ -871,7 +856,6 @@ cmd_uninstall() {
     yazi)     uninstall_local yazi; rm_user_bin ya ;;
     fd)       uninstall_local fd ;;
     zoxide)   uninstall_local zoxide ;;
-    fzf)      uninstall_local fzf ;;
     keychain) uninstall_local keychain ;;
     sshm)     uninstall_local sshm ;;
     go)
@@ -918,7 +902,7 @@ cmd_update() {
     return 0
   fi
   local t
-  for t in fish curl zellij lazygit yazi zoxide keychain go sshm hx nvim; do
+  for t in fish curl zellij lazygit yazi fd zoxide keychain go sshm hx nvim; do
     check_cmd "$t" && update_one "$t"
   done
 }
