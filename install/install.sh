@@ -697,6 +697,18 @@ install_fd_glibc() {
     extract_fd
 }
 
+# commitizen : commits conventionnels (`git cz`, utilisé par lazygit) via npm
+# (node) -> ~/.local + ~/.czrc (pointe l'adapter conventional). Sauté sans npm.
+install_commitizen() {
+  check_cmd npm || return 0
+  if ! check_cmd git-cz; then
+    say "commitizen (git cz)…"
+    quiet npm install -g --prefix "$HOME/.local" commitizen cz-conventional-changelog \
+      || { warn "commitizen : échec (npm)"; return 0; }
+  fi
+  ln -sf "$DOTFILES/commitizen/czrc" "$HOME/.czrc"
+}
+
 # Chaîne Go -> ~/.local/go (besoin de ~/.local/go/bin dans le PATH).
 install_go_glibc() {
   check_cmd go && return 0
@@ -752,6 +764,7 @@ install_glibc() {
   brick lazygit - deploy_lazygit_config install_lazygit_glibc
   brick yazi - - install_yazi_glibc
   brick fd - - install_fd_glibc
+  install_commitizen
   if has_gui; then
     brick alacritty "Install alacritty?" deploy_alacritty_config install_alacritty_gui
     install_nerd_font_gui || true
