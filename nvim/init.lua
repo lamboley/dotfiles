@@ -34,7 +34,7 @@ vim.pack.add({
   "https://github.com/Mofiqul/dracula.nvim",
   "https://github.com/nvim-lua/plenary.nvim",
   "https://github.com/MunifTanjim/nui.nvim",
-  "https://github.com/nvim-tree/nvim-web-devicons",
+  "https://github.com/echasnovski/mini.icons",
   "https://github.com/nvim-neo-tree/neo-tree.nvim",
   "https://github.com/akinsho/bufferline.nvim",
   "https://github.com/nvim-lualine/lualine.nvim",
@@ -48,6 +48,11 @@ vim.pack.add({
 require("dracula").setup({ transparent_bg = true })
 vim.cmd.colorscheme("dracula")
 
+-- Icônes : mini.icons (plus cohérent) remplace nvim-web-devicons via un mock.
+-- DOIT tourner avant neo-tree/bufferline/lualine qui consomment les icônes.
+require("mini.icons").setup()
+MiniIcons.mock_nvim_web_devicons()
+
 -- Arbre de fichiers à gauche.
 require("neo-tree").setup({
   window = { position = "left", width = 30 },
@@ -55,7 +60,17 @@ require("neo-tree").setup({
 vim.keymap.set("n", "<leader>e", "<cmd>Neotree toggle<CR>")
 
 -- Buffers ouverts affichés en haut.
-require("bufferline").setup({})
+require("bufferline").setup({
+  options = {
+    separator_style = "slant",            -- onglets en biseau (style powerline)
+    indicator = { style = "underline" },  -- soulignement de l'onglet actif
+    diagnostics = "nvim_lsp",             -- pastilles erreurs/warnings (si LSP)
+    show_buffer_close_icons = true,
+    offsets = {                           -- réserve la colonne de neo-tree
+      { filetype = "neo-tree", text = "Explorer", text_align = "left", separator = true },
+    },
+  },
+})
 vim.keymap.set("n", "<Tab>", "<cmd>BufferLineCycleNext<CR>")
 vim.keymap.set("n", "<S-Tab>", "<cmd>BufferLineCyclePrev<CR>")
 
