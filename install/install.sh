@@ -543,6 +543,7 @@ install_termux() {
   brick nvim - deploy_nvim_config pkg install -y neovim
   brick lazygit - deploy_lazygit_config pkg install -y lazygit
   brick yazi - - pkg install -y yazi
+  brick fd - - pkg install -y fd
   if check_cmd go; then
     brick sshm - - go install github.com/Gu1llaum-3/sshm@latest
   fi
@@ -692,6 +693,23 @@ install_yazi_glibc() {
     extract_yazi
 }
 
+# fd : le binaire est dans un sous-dossier versionné du tarball -> strip + ~/.local/bin.
+extract_fd() {
+  mkdir -p "$HOME/.local/bin"
+  local top; top="$(tar -tzf "$1" 2>/dev/null | head -1 | cut -d/ -f1)"
+  [[ -n "$top" ]] || return 1
+  tar -C "$HOME/.local/bin" --strip-components=1 -xzf "$1" "$top/fd"
+}
+
+# fd : recherche de fichiers rapide (musl) — utilisée par la recherche `s` de yazi.
+install_fd_glibc() {
+  check_cmd fd && return 0
+  local tag; tag="$(need_tag sharkdp/fd fd)" || return 1
+  fetch_and_install \
+    "https://github.com/sharkdp/fd/releases/download/${tag}/fd-${tag}-${ARCH}-unknown-linux-musl.tar.gz" \
+    extract_fd
+}
+
 # Chaîne Go -> ~/.local/go (besoin de ~/.local/go/bin dans le PATH).
 install_go_glibc() {
   check_cmd go && return 0
@@ -747,6 +765,7 @@ install_glibc() {
   brick sshm - - install_sshm_glibc
   brick lazygit - deploy_lazygit_config install_lazygit_glibc
   brick yazi - - install_yazi_glibc
+  brick fd - - install_fd_glibc
   if has_gui; then
     brick alacritty "Install alacritty?" deploy_alacritty_config install_alacritty_gui
     install_nerd_font_gui || true
@@ -795,6 +814,7 @@ cmd_install() {
     zellij)   pkg_or_build zellij   install_zellij_glibc;  deploy_zellij_config ;;
     lazygit)  pkg_or_build lazygit  install_lazygit_glibc; deploy_lazygit_config ;;
     yazi)     pkg_or_build yazi     install_yazi_glibc ;;
+    fd)       pkg_or_build fd       install_fd_glibc ;;
     zoxide)   pkg_or_build zoxide   install_zoxide_glibc ;;
     fzf)      pkg_or_build fzf      install_fzf_glibc ;;
     keychain) pkg_or_build keychain install_keychain ;;
@@ -814,7 +834,7 @@ cmd_install() {
       fi
       ;;
     nvim)     pkg_or_build neovim install_nvim_glibc; deploy_nvim_config ;;
-    *) echo "usage: install.sh install <fish|curl|zellij|lazygit|yazi|zoxide|fzf|keychain|go|sshm|hx|nvim>" >&2; exit 1 ;;
+    *) echo "usage: install.sh install <fish|curl|zellij|lazygit|yazi|fd|zoxide|keychain|go|sshm|hx|nvim>" >&2; exit 1 ;;
   esac
 }
 
@@ -849,6 +869,7 @@ cmd_uninstall() {
     zellij)   uninstall_local zellij   "$HOME/.config/zellij/config.kdl" ;;
     lazygit)  uninstall_local lazygit  "$HOME/.config/lazygit/config.yml" ;;
     yazi)     uninstall_local yazi; rm_user_bin ya ;;
+    fd)       uninstall_local fd ;;
     zoxide)   uninstall_local zoxide ;;
     fzf)      uninstall_local fzf ;;
     keychain) uninstall_local keychain ;;
@@ -873,8 +894,33 @@ cmd_uninstall() {
         && echo "retiré : ~/.local/{lib,share}/nvim (runtime nvim)"
       ;;
     fish|zsh) echo "shell exclu (risque de lockout) : retire-le à la main si besoin." >&2; exit 1 ;;
-    *) echo "usage: install.sh uninstall <curl|zellij|lazygit|yazi|zoxide|fzf|keychain|go|sshm|hx|nvim>" >&2; exit 1 ;;
+    *) echo "usage: install.sh uninstall <curl|zellij|lazygit|yazi|fd|zoxide|keychain|go|sshm|hx|nvim>" >&2; exit 1 ;;
   esac
+}
+
+# Met à jour un seul outil : retire le binaire user-local (sauf fish, remplacé
+# sur place pour éviter le lockout) puis réinstalle la dernière version.
+update_one() {
+  say "mise à jour de $1…"
+  case "$1" in
+    fish) rm_user_bin fish ;;
+    *)    cmd_uninstall "$1" ;;
+  esac
+  cmd_install "$1"
+}
+
+# install.sh update [outil] : met à jour un outil, ou TOUS les outils user-local
+# installés si aucun argument. (Les binaires ne s'auto-mettent pas à jour :
+# `install` saute ce qui existe déjà, donc update = retire + réinstalle.)
+cmd_update() {
+  if [[ -n "${1:-}" ]]; then
+    update_one "$1"
+    return 0
+  fi
+  local t
+  for t in fish curl zellij lazygit yazi zoxide keychain go sshm hx nvim; do
+    check_cmd "$t" && update_one "$t"
+  done
 }
 
 main() {
@@ -886,7 +932,8 @@ main() {
     "")        install_all ;;
     install)   shift; cmd_install   "$@" ;;
     uninstall) shift; cmd_uninstall "$@" ;;
-    *) echo "usage: install.sh [install <outil> | uninstall <outil>]" >&2; exit 1 ;;
+    update)    shift; cmd_update    "$@" ;;
+    *) echo "usage: install.sh [install <outil> | uninstall <outil> | update [outil]]" >&2; exit 1 ;;
   esac
 }
 
