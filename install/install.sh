@@ -202,6 +202,15 @@ extract_node() {
   tar -C "$HOME/.local" --strip-components=1 -xJf "$1" "$top/bin" "$top/lib"
 }
 
+# nvim : tarball GitHub (nvim-linux-<arch>) -> ~/.local (bin/ + lib/ + share/,
+# le runtime vit dans share/nvim). Top dir = nom de l'asset sans .tar.gz.
+extract_nvim() {
+  mkdir -p "$HOME/.local"
+  local top; top="$(tar -tzf "$1" 2>/dev/null | head -1 | cut -d/ -f1)"
+  [[ -n "$top" ]] || return 1
+  tar -C "$HOME/.local" --strip-components=1 -xzf "$1" "$top/bin" "$top/lib" "$top/share"
+}
+
 # curl : binaire statique stunnel (tarball xz contenant curl + trurl + SHA256SUMS).
 extract_curl() {
   mkdir -p "$HOME/.local/bin"
@@ -405,6 +414,11 @@ deploy_lazygit_config() {
   ln -sf "$DOTFILES/lazygit/config.yml" "$HOME/.config/lazygit/config.yml"
 }
 
+deploy_nvim_config() {
+  mkdir -p "$HOME/.config/nvim"
+  ln -sf "$DOTFILES/nvim/init.lua" "$HOME/.config/nvim/init.lua"
+}
+
 setup_ssh() {
   say "configuration SSH…"
   mkdir -p "$HOME/.ssh/cm" "$HOME/.ssh/config.d"
@@ -522,6 +536,7 @@ install_termux() {
   brick zellij - deploy_zellij_config pkg install -y zellij
   brick go - - pkg install -y golang
   brick hx - deploy_helix_termux pkg install -y helix
+  brick nvim - deploy_nvim_config pkg install -y neovim
   brick lazygit - deploy_lazygit_config pkg install -y lazygit
   brick yazi - - pkg install -y yazi
   if check_cmd go; then
@@ -646,6 +661,15 @@ install_lazygit_glibc() {
     extract_single_bin
 }
 
+# nvim : binaires officiels GitHub (asset = arch arm64) -> ~/.local (bin/lib/share).
+install_nvim_glibc() {
+  check_cmd nvim && return 0
+  local tag; tag="$(need_tag neovim/neovim nvim)" || return 1
+  fetch_and_install \
+    "https://github.com/neovim/neovim/releases/download/${tag}/nvim-linux-${ARCH_ARM64}.tar.gz" \
+    extract_nvim
+}
+
 # yazi : gestionnaire de fichiers TUI (asset .zip, variante musl) -> ~/.local/bin.
 install_yazi_glibc() {
   check_cmd yazi && return 0
@@ -704,6 +728,7 @@ install_glibc() {
   brick keychain - - install_keychain
   brick go - - install_go_glibc
   brick hx - deploy_helix_glibc install_helix_glibc
+  brick nvim - deploy_nvim_config install_nvim_glibc
   brick zellij - deploy_zellij_config install_zellij_glibc
   brick sshm - - install_sshm_glibc
   brick lazygit - deploy_lazygit_config install_lazygit_glibc
@@ -773,7 +798,8 @@ cmd_install() {
         install_helix_glibc; deploy_helix_glibc
       fi
       ;;
-    *) echo "usage: install.sh install <fish|curl|zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
+    nvim)     pkg_or_build neovim install_nvim_glibc; deploy_nvim_config ;;
+    *) echo "usage: install.sh install <fish|curl|zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx|nvim>" >&2; exit 1 ;;
   esac
 }
 
@@ -825,8 +851,13 @@ cmd_uninstall() {
       done
       [[ -d "$HOME/.config/helix/runtime" ]] && { rm -rf "$HOME/.config/helix/runtime"; echo "retiré : ~/.config/helix/runtime"; }
       ;;
+    nvim)
+      uninstall_local nvim "$HOME/.config/nvim/init.lua"
+      rm -rf "$HOME/.local/lib/nvim" "$HOME/.local/share/nvim" 2>/dev/null \
+        && echo "retiré : ~/.local/{lib,share}/nvim (runtime nvim)"
+      ;;
     fish|zsh) echo "shell exclu (risque de lockout) : retire-le à la main si besoin." >&2; exit 1 ;;
-    *) echo "usage: install.sh uninstall <curl|zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx>" >&2; exit 1 ;;
+    *) echo "usage: install.sh uninstall <curl|zellij|lazygit|yazi|zoxide|keychain|go|sshm|hx|nvim>" >&2; exit 1 ;;
   esac
 }
 
