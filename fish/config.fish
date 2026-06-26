@@ -3,8 +3,8 @@ set -gx PATH $HOME/.local/bin $HOME/.local/go/bin $HOME/go/bin $PATH
 # Helix et zellij ne détectent le truecolor que via COLORTERM.
 set -gx COLORTERM truecolor
 
-set -gx EDITOR hx
-set -gx VISUAL hx
+set -gx EDITOR nvim
+set -gx VISUAL nvim
 
 # fix: Le Helix provenant des paquets Termux ne trouve pas le dossier runtime.
 if set -q PREFIX; and test -d $PREFIX/opt/helix/runtime
