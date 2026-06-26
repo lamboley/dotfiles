@@ -20,29 +20,6 @@ if status is-interactive
     alias g git
     alias c claude
 
-    # Thème
-    set -g tide_pwd_bg_color 44475a
-    set -g tide_pwd_color_dirs 8be9fd
-    set -g tide_pwd_color_anchors f8f8f2
-    set -g tide_pwd_color_truncated_dirs 6272a4
-    set -g tide_git_bg_color 44475a
-    set -g tide_git_bg_color_unstable 44475a
-    set -g tide_git_bg_color_urgent 44475a
-    set -g tide_git_color_branch bd93f9
-    set -g tide_git_color_dirty f1fa8c
-    set -g tide_git_color_staged 50fa7b
-    set -g tide_git_color_untracked ff79c6
-    set -g tide_git_color_conflicted ff5555
-    set -g tide_git_color_operation ffb86c
-    set -g tide_git_color_stash 8be9fd
-    set -g tide_git_color_upstream 6272a4
-    set -g tide_character_color 50fa7b
-    set -g tide_character_color_failure ff5555
-    set -g tide_status_bg_color 44475a
-    set -g tide_status_color 50fa7b
-    set -g tide_status_bg_color_failure 44475a
-    set -g tide_status_color_failure ff5555
-
     # Agent SSH avec Keychain
     if command -q keychain
         keychain --quiet
