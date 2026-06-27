@@ -24,7 +24,7 @@ require("lazy").setup({
   },
   defaults = { lazy = false, version = false },
   -- Thème utilisé pendant l'installation initiale.
-  install = { colorscheme = { "dracula", "habamax" } },
+  install = { colorscheme = { "catppuccin", "habamax" } },
   checker = { enabled = true, notify = false }, -- vérifie les MAJ en silence
   performance = {
     rtp = {

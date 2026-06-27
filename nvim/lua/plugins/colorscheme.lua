@@ -1,16 +1,20 @@
 return {
-  -- Thème dracula (cohérent avec helix / zellij / alacritty), fond transparent
-  -- pour se fondre dans le pane zellij.
+  -- Thème Catppuccin Mocha (cohérent avec helix / zellij / alacritty), fond
+  -- transparent pour se fondre dans le pane zellij.
   {
-    "Mofiqul/dracula.nvim",
+    "catppuccin/nvim",
+    name = "catppuccin",
     lazy = false,
     priority = 1000,
-    opts = { transparent_bg = true },
+    opts = {
+      flavour = "mocha",
+      transparent_background = true,
+    },
   },
 
-  -- LazyVim utilise tokyonight par défaut -> on force dracula.
+  -- LazyVim utilise tokyonight par défaut -> on force catppuccin.
   {
     "LazyVim/LazyVim",
-    opts = { colorscheme = "dracula" },
+    opts = { colorscheme = "catppuccin" },
   },
 }
