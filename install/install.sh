@@ -415,8 +415,14 @@ deploy_lazygit_config() {
 }
 
 deploy_nvim_config() {
-  mkdir -p "$HOME/.config/nvim"
-  ln -sf "$DOTFILES/nvim/init.lua" "$HOME/.config/nvim/init.lua"
+  # LazyVim = config multi-fichiers -> ~/.config/nvim devient un lien vers nvim/.
+  if [[ -L "$HOME/.config/nvim" ]]; then
+    rm -f "$HOME/.config/nvim"                                       # ancien lien -> on remplace
+  elif [[ -e "$HOME/.config/nvim" ]]; then
+    mv "$HOME/.config/nvim" "$HOME/.config/nvim.pre-dotfiles.bak"    # vrai dossier -> backup
+  fi
+  mkdir -p "$HOME/.config"
+  ln -sfn "$DOTFILES/nvim" "$HOME/.config/nvim"
 }
 
 setup_ssh() {
@@ -886,9 +892,10 @@ cmd_uninstall() {
       [[ -d "$HOME/.config/helix/runtime" ]] && { rm -rf "$HOME/.config/helix/runtime"; echo "retiré : ~/.config/helix/runtime"; }
       ;;
     nvim)
-      uninstall_local nvim "$HOME/.config/nvim/init.lua"
+      uninstall_local nvim
+      [[ -L "$HOME/.config/nvim" ]] && { rm -f "$HOME/.config/nvim"; echo "retiré : ~/.config/nvim (lien LazyVim)"; }
       rm -rf "$HOME/.local/lib/nvim" "$HOME/.local/share/nvim" 2>/dev/null \
-        && echo "retiré : ~/.local/{lib,share}/nvim (runtime nvim)"
+        && echo "retiré : ~/.local/{lib,share}/nvim (binaire runtime + plugins)"
       ;;
     fish|zsh) echo "shell exclu (risque de lockout) : retire-le à la main si besoin." >&2; exit 1 ;;
     *) echo "usage: install.sh uninstall <curl|zellij|lazygit|yazi|fd|zoxide|keychain|go|sshm|hx|nvim>" >&2; exit 1 ;;

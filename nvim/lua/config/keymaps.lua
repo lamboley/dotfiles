@@ -1,0 +1,3 @@
+-- Keymaps additionnels (chargés après ceux de LazyVim).
+-- LazyVim fournit déjà <leader>e (explorer), <leader>ff (fichiers), etc.
+-- Voir :LazyVim ou https://www.lazyvim.org/keymaps

@@ -1,0 +1,1 @@
+-- Autocmds additionnels (chargés après ceux de LazyVim).
