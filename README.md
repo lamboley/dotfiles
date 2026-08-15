@@ -7,7 +7,7 @@ Le fichier [install.sh](https://raw.githubusercontent.com/lamboley/dotfiles/mast
 
 - Le shell `Fish` (plugins via `fisher` : tide, z).
 - Les outils `zoxide`, `keychain`, `lazygit`, `yazi`.
-- Les éditeurs `Helix` et `Neovim`.
+- L'éditeur `Neovim`.
 - Le multiplexeur `Zellij`.
 - `Golang`, le programme Go `sshm` et une config ssh.
 - La font `FiraCode Nerd Font` et le terminal `Alacritty` (GUI).
@@ -30,5 +30,5 @@ Installer ou retirer **un seul** outil en user-local, sans relancer toute l'inst
 | Installer       | `install/install.sh install <outil>`   |
 | Retirer (local) | `install/install.sh uninstall <outil>` |
 
-Outils : `zellij`, `lazygit`, `yazi`, `zoxide`, `keychain`, `go`, `sshm`, `hx`, `nvim`.
+Outils : `zellij`, `lazygit`, `yazi`, `zoxide`, `keychain`, `go`, `sshm`, `nvim`.
 Les shells (`fish`) sont exclus pour éviter tout lockout.

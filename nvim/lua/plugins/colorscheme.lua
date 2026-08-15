@@ -1,5 +1,5 @@
 return {
-  -- Thème Catppuccin Mocha (cohérent avec helix / zellij / alacritty), fond
+  -- Thème Catppuccin Mocha (cohérent avec zellij / alacritty), fond
   -- transparent pour se fondre dans le pane zellij.
   {
     "catppuccin/nvim",

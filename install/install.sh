@@ -17,7 +17,7 @@ DOTFILES="$HOME/.dotfiles"
 REPO="https://github.com/lamboley/dotfiles.git"
 
 IS_TERMUX=0
-ARCH=""          # uname -m brut : x86_64 / aarch64       (helix, zellij)
+ARCH=""          # uname -m brut : x86_64 / aarch64       (zellij)
 ARCH_ARM64=""    # x86_64 -> x86_64 ; aarch64 -> arm64    (sshm, lazygit)
 ARCH_GO=""       # x86_64 -> amd64  ; aarch64 -> arm64    (chaîne Go)
 SUDO=""
@@ -27,7 +27,7 @@ VERBOSE="${VERBOSE:-0}"   # VERBOSE=1 -> montre la sortie brute des commandes (d
 TMP_FILES=()     # fichiers mktemp à supprimer en sortie (safe Ctrl-C)
 
 cleanup() {
-  rm -rf /tmp/helix-extract /tmp/FiraCode.zip \
+  rm -rf /tmp/FiraCode.zip \
     "${TMP_FILES[@]}" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -173,33 +173,10 @@ extract_single_bin() {
   tar -C "$HOME/.local/bin" -xzf "$1" "$EXTRACT_BIN"
 }
 
-extract_helix() {
-  # helix a besoin de hx + son dossier runtime ensemble.
-  local dir="/tmp/helix-extract"
-  rm -rf "$dir"; mkdir -p "$dir"
-  tar -C "$dir" -xJf "$1" || return 1
-  local hxdir="$dir/helix-${HELIX_TAG}-${ARCH}-linux"
-  mkdir -p "$HOME/.local/bin"
-  install -m 755 "$hxdir/hx" "$HOME/.local/bin/hx" || return 1
-  mkdir -p "$HOME/.config/helix"
-  rm -rf "$HOME/.config/helix/runtime"
-  cp -r "$hxdir/runtime" "$HOME/.config/helix/runtime"
-  rm -rf "$dir"
-}
-
 # fish : binaire unique auto-contenu (tar.xz) -> ~/.local/bin.
 extract_fish() {
   mkdir -p "$HOME/.local/bin"
   tar -C "$HOME/.local/bin" -xJf "$1" fish
-}
-
-# node : tarball nodejs.org -> ~/.local (bin/ + lib/ suffisent pour node+npm ;
-# include/share/ et LICENSE/README du tarball ignorés).
-extract_node() {
-  mkdir -p "$HOME/.local"
-  local top; top="$(tar -tJf "$1" 2>/dev/null | head -1 | cut -d/ -f1)"
-  [[ -n "$top" ]] || return 1
-  tar -C "$HOME/.local" --strip-components=1 -xJf "$1" "$top/bin" "$top/lib"
 }
 
 # nvim : tarball GitHub (nvim-linux-<arch>) -> ~/.local (bin/ + lib/ + share/,
@@ -324,16 +301,6 @@ clone_or_update_repo() {
 # Étapes partagées
 # ==========================================================
 
-# Lie helix/* du dépôt dans ~/.config/helix/ (le dossier reste réel pour que
-# runtime/ cohabite). -n : remplace un lien-vers-dossier, ne descend pas dedans.
-deploy_editor_configs() {
-  mkdir -p "$HOME/.config/helix"
-  local f
-  for f in "$DOTFILES"/helix/*; do
-    ln -sfn "$f" "$HOME/.config/helix/$(basename "$f")"
-  done
-}
-
 # Config fish (shell principal) : config + fonctions + plugins (fisher).
 deploy_fish_config() {
   mkdir -p "$HOME/.config/fish/functions"
@@ -391,17 +358,6 @@ install_fisher() {
     end
     fisher update
   ' || warn "fisher a échoué (réseau ? relance avec VERBOSE=1)"
-}
-
-# Déploie la config helix + ses language servers (gopls, bash-ls).
-deploy_helix_termux() {
-  deploy_editor_configs
-  install_helix_lsp pkg
-}
-
-deploy_helix_glibc() {
-  deploy_editor_configs
-  install_helix_lsp "$PKG"
 }
 
 deploy_zellij_config() {
@@ -479,52 +435,6 @@ set_default_shell() {
   fi
 }
 
-# node : binaires officiels nodejs.org -> ~/.local (glibc ; Termux reste `pkg`).
-install_node_glibc() {
-  check_cmd node && return 0
-  local ver arch
-  ver="$(dl_stdout https://nodejs.org/dist/index.json 2>/dev/null \
-    | tr '{' '\n' | grep '"lts":"' | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
-  [[ -n "$ver" ]] || { echo "Failed to resolve Node LTS version" >&2; return 1; }
-  case "$ARCH_GO" in
-    amd64) arch=x64 ;;
-    arm64) arch=arm64 ;;
-    *) return 1 ;;
-  esac
-  fetch_and_install \
-    "https://nodejs.org/dist/${ver}/node-${ver}-linux-${arch}.tar.xz" \
-    extract_node
-}
-
-# Language servers Helix (Go + Bash). $1 = "pkg" (Termux, node natif) sinon glibc.
-install_helix_lsp() {
-  if check_cmd gopls && check_cmd bash-language-server; then
-    return 0
-  fi
-
-  if check_cmd go && ! check_cmd gopls; then
-    say "LSP Go (gopls)…"
-    quiet go install golang.org/x/tools/gopls@latest || warn "gopls : échec"
-  fi
-
-  if ! check_cmd bash-language-server; then
-    if ! check_cmd npm && ask "bash-language-server requires Node.js. Install it?"; then
-      say "Node.js (pour le LSP bash)…"
-      if [[ "$1" == "pkg" ]]; then
-        quiet pkg install -y nodejs || true      # Termux : node natif (tarball glibc incompatible)
-      else
-        quiet install_node_glibc || true         # glibc : node user-local depuis nodejs.org
-      fi
-    fi
-    # Install global dans ~/.local (sans sudo) ; non-fatal - c'est un confort.
-    if check_cmd npm; then
-      say "LSP Bash (bash-language-server)…"
-      mkdir -p "$HOME/.local/bin" "$HOME/.local/lib"
-      quiet npm install -g --prefix "$HOME/.local" bash-language-server || warn "bash-language-server : échec"
-    fi
-  fi
-}
-
 # ==========================================================
 # Branche TERMUX
 # ==========================================================
@@ -541,7 +451,6 @@ install_termux() {
   brick fish - deploy_fish_config pkg install -y fish
   brick zellij - deploy_zellij_config pkg install -y zellij
   brick go - - pkg install -y golang
-  brick hx - deploy_helix_termux pkg install -y helix
   brick nvim - deploy_nvim_config pkg install -y neovim
   brick lazygit - deploy_lazygit_config pkg install -y lazygit
   brick yazi - - pkg install -y yazi
@@ -596,14 +505,6 @@ install_nerd_font_gui() {
     rm -f /tmp/FiraCode.zip
     quiet fc-cache -f || true
   fi
-}
-
-install_helix_glibc() {
-  check_cmd hx && return 0
-  HELIX_TAG="$(need_tag helix-editor/helix helix)" || return 1
-  fetch_and_install \
-    "https://github.com/helix-editor/helix/releases/download/${HELIX_TAG}/helix-${HELIX_TAG}-${ARCH}-linux.tar.xz" \
-    extract_helix
 }
 
 # fish : binaire standalone GitHub -> ~/.local/bin (asset = uname -m brut).
@@ -763,7 +664,6 @@ install_glibc() {
   brick zoxide - - install_zoxide_glibc
   brick keychain - - install_keychain
   brick go - - install_go_glibc
-  brick hx - deploy_helix_glibc install_helix_glibc
   brick nvim - deploy_nvim_config install_nvim_glibc
   brick zellij - deploy_zellij_config install_zellij_glibc
   brick sshm - - install_sshm_glibc
@@ -830,15 +730,8 @@ cmd_install() {
         install_sshm_glibc
       fi
       ;;
-    hx)
-      if [[ "$IS_TERMUX" -eq 1 ]]; then
-        pkg install -y helix; deploy_helix_termux
-      else
-        install_helix_glibc; deploy_helix_glibc
-      fi
-      ;;
     nvim)     pkg_or_build neovim install_nvim_glibc; deploy_nvim_config ;;
-    *) echo "usage: install.sh install <fish|curl|zellij|lazygit|yazi|fd|zoxide|keychain|go|sshm|hx|nvim>" >&2; exit 1 ;;
+    *) echo "usage: install.sh install <fish|curl|zellij|lazygit|yazi|fd|zoxide|keychain|go|sshm|nvim>" >&2; exit 1 ;;
   esac
 }
 
@@ -867,7 +760,6 @@ uninstall_local() {
 # install.sh uninstall <outil> : retire la version user-local (binaire +
 # symlinks de config). Shells exclus pour éviter le lockout.
 cmd_uninstall() {
-  local f
   case "${1:-}" in
     curl)     uninstall_local curl ;;
     zellij)   uninstall_local zellij   "$HOME/.config/zellij/config.kdl" ;;
@@ -884,13 +776,6 @@ cmd_uninstall() {
         echo "déjà absent : ~/.local/go"
       fi
       ;;
-    hx)
-      uninstall_local hx
-      for f in "$HOME"/.config/helix/*; do
-        [[ -L "$f" ]] && { rm -f "$f"; echo "retiré : $f"; }
-      done
-      [[ -d "$HOME/.config/helix/runtime" ]] && { rm -rf "$HOME/.config/helix/runtime"; echo "retiré : ~/.config/helix/runtime"; }
-      ;;
     nvim)
       uninstall_local nvim
       [[ -L "$HOME/.config/nvim" ]] && { rm -f "$HOME/.config/nvim"; echo "retiré : ~/.config/nvim (lien LazyVim)"; }
@@ -898,7 +783,7 @@ cmd_uninstall() {
         && echo "retiré : ~/.local/{lib,share}/nvim (binaire runtime + plugins)"
       ;;
     fish|zsh) echo "shell exclu (risque de lockout) : retire-le à la main si besoin." >&2; exit 1 ;;
-    *) echo "usage: install.sh uninstall <curl|zellij|lazygit|yazi|fd|zoxide|keychain|go|sshm|hx|nvim>" >&2; exit 1 ;;
+    *) echo "usage: install.sh uninstall <curl|zellij|lazygit|yazi|fd|zoxide|keychain|go|sshm|nvim>" >&2; exit 1 ;;
   esac
 }
 
@@ -922,7 +807,7 @@ cmd_update() {
     return 0
   fi
   local t
-  for t in fish curl zellij lazygit yazi fd zoxide keychain go sshm hx nvim; do
+  for t in fish curl zellij lazygit yazi fd zoxide keychain go sshm nvim; do
     check_cmd "$t" && update_one "$t"
   done
 }

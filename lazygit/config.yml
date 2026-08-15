@@ -29,7 +29,7 @@ gui:
     searchingActiveBorderColor:
       - "#f9e2af"
 os:
-  editPreset: "helix" # ouvre les fichiers (touche `e`) dans Helix.
+  editPreset: "nvim" # ouvre les fichiers (touche `e`) dans Neovim.
 git:
   pagers:
     - colorArg: always
