@@ -6,24 +6,22 @@ on:
     branches: [master]
     paths-ignore:
       - '**.md'
-      - 'adr/**'
-      - 'docs/**'
 
 permissions: {}
 
 jobs:
   semgrep:
     name: Semgrep
-    runs-on: debian-latest
+    runs-on: ubuntu-latest
     if: github.repository == 'lamboley/dotfiles'
 
     permissions:
       contents: read
 
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep:1.173.0@sha256:67319956da3dcb58baf5b322899c15458e3963e7018a86aeeb5cd224e69cb77a
     steps:
-      - uses: actions/checkout@v4  # renovate: pinDigest
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 

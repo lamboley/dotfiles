@@ -7,18 +7,6 @@
   "semanticCommits": "enabled",
   "packageRules": [
     {
-      "matchManagers": ["gomod"],
-      "groupName": "Go dependencies",
-      "automerge": true,
-      "matchUpdateTypes": ["minor", "patch", "digest"]
-    },
-    {
-      "matchManagers": ["npm"],
-      "groupName": "npm dependencies",
-      "automerge": true,
-      "matchUpdateTypes": ["minor", "patch"]
-    },
-    {
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions",
       "automerge": true,

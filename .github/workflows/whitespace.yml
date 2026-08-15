@@ -2,13 +2,15 @@ name: Whitespace
 
 on:
   pull_request:
+  push:
+    branches: [master]
 
 permissions: {}
 
 jobs:
   whitespace:
     name: Check Whitespace
-    runs-on: debian-latest
+    runs-on: ubuntu-latest
 
     permissions:
       contents: read
