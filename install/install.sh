@@ -188,6 +188,16 @@ extract_nvim() {
   tar -C "$HOME/.local" --strip-components=1 -xzf "$1" "$top/bin" "$top/lib" "$top/share"
 }
 
+# node : tarball nodejs.org -> ~/.local (bin/ + lib/ suffisent pour node+npm ;
+# include/share/ et LICENSE/README du tarball ignorés). Requis par les serveurs
+# LSP web de Neovim (vtsls, volar, prettier…) que Mason installe via npm.
+extract_node() {
+  mkdir -p "$HOME/.local"
+  local top; top="$(tar -tJf "$1" 2>/dev/null | head -1 | cut -d/ -f1)"
+  [[ -n "$top" ]] || return 1
+  tar -C "$HOME/.local" --strip-components=1 -xJf "$1" "$top/bin" "$top/lib"
+}
+
 # curl : binaire statique stunnel (tarball xz contenant curl + trurl + SHA256SUMS).
 extract_curl() {
   mkdir -p "$HOME/.local/bin"
@@ -451,6 +461,7 @@ install_termux() {
   brick fish - deploy_fish_config pkg install -y fish
   brick zellij - deploy_zellij_config pkg install -y zellij
   brick go - - pkg install -y golang
+  brick node - - pkg install -y nodejs
   brick nvim - deploy_nvim_config pkg install -y neovim
   brick lazygit - deploy_lazygit_config pkg install -y lazygit
   brick yazi - - pkg install -y yazi
@@ -578,6 +589,24 @@ install_nvim_glibc() {
     extract_nvim
 }
 
+# node : binaires officiels nodejs.org -> ~/.local (glibc ; Termux reste `pkg`).
+# LTS résolue via l'index JSON ; requis par les LSP web de Neovim (Mason/npm).
+install_node_glibc() {
+  check_cmd node && return 0
+  local ver arch
+  ver="$(dl_stdout https://nodejs.org/dist/index.json 2>/dev/null \
+    | tr '{' '\n' | grep '"lts":"' | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  [[ -n "$ver" ]] || { echo "Failed to resolve Node LTS version" >&2; return 1; }
+  case "$ARCH_GO" in
+    amd64) arch=x64 ;;
+    arm64) arch=arm64 ;;
+    *) return 1 ;;
+  esac
+  fetch_and_install \
+    "https://nodejs.org/dist/${ver}/node-${ver}-linux-${arch}.tar.xz" \
+    extract_node
+}
+
 # yazi : gestionnaire de fichiers TUI (asset .zip, variante musl) -> ~/.local/bin.
 install_yazi_glibc() {
   check_cmd yazi && return 0
@@ -664,6 +693,7 @@ install_glibc() {
   brick zoxide - - install_zoxide_glibc
   brick keychain - - install_keychain
   brick go - - install_go_glibc
+  brick node - - install_node_glibc
   brick nvim - deploy_nvim_config install_nvim_glibc
   brick zellij - deploy_zellij_config install_zellij_glibc
   brick sshm - - install_sshm_glibc
@@ -672,7 +702,7 @@ install_glibc() {
   brick fd - - install_fd_glibc
   install_commitizen
   if has_gui; then
-    brick alacritty "Install alacritty?" deploy_alacritty_config install_alacritty_gui
+    brick alacritty - deploy_alacritty_config install_alacritty_gui
     install_nerd_font_gui || true
   fi
 
@@ -730,8 +760,9 @@ cmd_install() {
         install_sshm_glibc
       fi
       ;;
+    node)     pkg_or_build nodejs install_node_glibc ;;
     nvim)     pkg_or_build neovim install_nvim_glibc; deploy_nvim_config ;;
-    *) echo "usage: install.sh install <fish|curl|zellij|lazygit|yazi|fd|zoxide|keychain|go|sshm|nvim>" >&2; exit 1 ;;
+    *) echo "usage: install.sh install <fish|curl|zellij|lazygit|yazi|fd|zoxide|keychain|go|node|sshm|nvim>" >&2; exit 1 ;;
   esac
 }
 
@@ -776,6 +807,12 @@ cmd_uninstall() {
         echo "déjà absent : ~/.local/go"
       fi
       ;;
+    node)
+      uninstall_local node
+      rm_user_bin npm; rm_user_bin npx
+      rm -rf "$HOME/.local/lib/node_modules" 2>/dev/null \
+        && echo "retiré : ~/.local/lib/node_modules (npm + paquets -g)"
+      ;;
     nvim)
       uninstall_local nvim
       [[ -L "$HOME/.config/nvim" ]] && { rm -f "$HOME/.config/nvim"; echo "retiré : ~/.config/nvim (lien LazyVim)"; }
@@ -783,7 +820,7 @@ cmd_uninstall() {
         && echo "retiré : ~/.local/{lib,share}/nvim (binaire runtime + plugins)"
       ;;
     fish|zsh) echo "shell exclu (risque de lockout) : retire-le à la main si besoin." >&2; exit 1 ;;
-    *) echo "usage: install.sh uninstall <curl|zellij|lazygit|yazi|fd|zoxide|keychain|go|sshm|nvim>" >&2; exit 1 ;;
+    *) echo "usage: install.sh uninstall <curl|zellij|lazygit|yazi|fd|zoxide|keychain|go|node|sshm|nvim>" >&2; exit 1 ;;
   esac
 }
 
@@ -807,7 +844,7 @@ cmd_update() {
     return 0
   fi
   local t
-  for t in fish curl zellij lazygit yazi fd zoxide keychain go sshm nvim; do
+  for t in fish curl zellij lazygit yazi fd zoxide keychain go node sshm nvim; do
     check_cmd "$t" && update_one "$t"
   done
 }
