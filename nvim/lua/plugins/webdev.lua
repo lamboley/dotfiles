@@ -1,8 +1,8 @@
--- HTML / CSS / Emmet — complète les extras lang.typescript, lang.vue et
--- formatting.prettier (activés dans lazyvim.json). Ces trois-là couvrent
--- JS/TS, Vue3 et le formatage ; il ne manque que les serveurs HTML/CSS/Emmet
--- et les parsers Treesitter css/scss. Tout s'installe user-local via Mason
--- (~/.local/share/nvim/mason), aucun sudo.
+-- HTML / CSS / Emmet — complète les extras lang.typescript et lang.vue
+-- (activés dans lazyvim.json), qui couvrent JS/TS et Vue3. Il manque les
+-- serveurs HTML/CSS/Emmet et les parsers Treesitter css/scss. Tout s'installe
+-- user-local via Mason (~/.local/share/nvim/mason), aucun sudo.
+-- Le formatage n'est pas géré ici : voir vim.g.autoformat dans config/options.
 return {
   -- Parsers Treesitter manquants (html/js/vue/ts viennent déjà des défauts
   -- LazyVim et de l'extra vue).
@@ -23,13 +23,19 @@ return {
         html = {},
         cssls = {},
         emmet_language_server = {
+          -- Liste par défaut de nvim-lspconfig, moins `pug`/`eruby`/etc. qu'on
+          -- n'écrit pas. `javascript` en est volontairement ABSENT : dans un
+          -- .js sans JSX, Emmet n'a rien d'utile à proposer, mais il répond
+          -- quand même à tout — sur `myArrayTest.po` il lit `.po` comme un
+          -- sélecteur de classe et renvoie `<myArrayTest class="po">`, qui
+          -- vient concurrencer `pop`/`push`/`shift` du LSP TypeScript.
+          -- Ne le rajouter que si tu écris du JSX dans des fichiers .js.
           filetypes = {
             "html",
             "css",
             "scss",
             "sass",
             "less",
-            "javascript",
             "javascriptreact",
             "typescriptreact",
             "vue",
