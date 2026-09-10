@@ -12,6 +12,10 @@ set -gx VISUAL nvim
 if status is-interactive
     set -g fish_greeting ""
 
+    # Ctrl-S/Ctrl-Q servent au controle de flux (XOFF/XON) par defaut, ce qui
+    # gele le terminal au lieu de transmettre la touche a nvim.
+    stty -ixon
+
     alias ll='ls -la'
     alias lt='ls -lrt'
     alias mkdir='mkdir -p'
