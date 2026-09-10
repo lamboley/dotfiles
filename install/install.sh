@@ -190,7 +190,7 @@ extract_nvim() {
 
 # node : tarball nodejs.org -> ~/.local (bin/ + lib/ suffisent pour node+npm ;
 # include/share/ et LICENSE/README du tarball ignorés). Requis par les serveurs
-# LSP web de Neovim (vtsls, volar, prettier…) que Mason installe via npm.
+# LSP web de Neovim (typescript-language-server, volar…) installés via npm.
 extract_node() {
   mkdir -p "$HOME/.local"
   local top; top="$(tar -tJf "$1" 2>/dev/null | head -1 | cut -d/ -f1)"
@@ -381,7 +381,7 @@ deploy_lazygit_config() {
 }
 
 deploy_nvim_config() {
-  # LazyVim = config multi-fichiers -> ~/.config/nvim devient un lien vers nvim/.
+  # Config multi-fichiers -> ~/.config/nvim devient un lien vers nvim/.
   if [[ -L "$HOME/.config/nvim" ]]; then
     rm -f "$HOME/.config/nvim"                                       # ancien lien -> on remplace
   elif [[ -e "$HOME/.config/nvim" ]]; then
@@ -590,7 +590,7 @@ install_nvim_glibc() {
 }
 
 # node : binaires officiels nodejs.org -> ~/.local (glibc ; Termux reste `pkg`).
-# LTS résolue via l'index JSON ; requis par les LSP web de Neovim (Mason/npm).
+# LTS résolue via l'index JSON ; requis par les LSP web de Neovim (npm).
 install_node_glibc() {
   check_cmd node && return 0
   local ver arch
@@ -815,7 +815,7 @@ cmd_uninstall() {
       ;;
     nvim)
       uninstall_local nvim
-      [[ -L "$HOME/.config/nvim" ]] && { rm -f "$HOME/.config/nvim"; echo "retiré : ~/.config/nvim (lien LazyVim)"; }
+      [[ -L "$HOME/.config/nvim" ]] && { rm -f "$HOME/.config/nvim"; echo "retiré : ~/.config/nvim (lien vers dotfiles)"; }
       rm -rf "$HOME/.local/lib/nvim" "$HOME/.local/share/nvim" 2>/dev/null \
         && echo "retiré : ~/.local/{lib,share}/nvim (binaire runtime + plugins)"
       ;;
