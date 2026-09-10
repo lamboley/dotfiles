@@ -1,6 +1,8 @@
-set -gx PATH $HOME/bin $PATH
-set -gx PATH $HOME/.local/bin $PATH
-set -gx PATH $HOME/.local/go/bin $HOME/go/bin $PATH
+# fish_add_path is idempotent, so nested shells do not stack duplicates the
+# way three unconditional `set -gx PATH ... $PATH` lines did. -g keeps this
+# global rather than universal, so config.fish stays the single source of
+# truth instead of state leaking into fish_variables.
+fish_add_path -g $HOME/.local/go/bin $HOME/go/bin $HOME/.local/bin $HOME/bin
 
 set -gx COLORTERM truecolor
 
