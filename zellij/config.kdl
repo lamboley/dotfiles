@@ -330,7 +330,7 @@ default_shell "fish"
 // The name of the default layout to load on startup
 // Default: "default"
 // 
-default_layout "compact"
+default_layout "nobar"
  
 // The folder in which Zellij will look for layouts
 // (Requires restart)
@@ -356,7 +356,7 @@ mouse_mode true
 //   - true (default, enabled)
 //   - false
 // 
-pane_frames true
+pane_frames false
  
 // When attaching to an existing session with other users,
 // should the session be mirrored (true)
