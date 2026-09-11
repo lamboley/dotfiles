@@ -36,3 +36,9 @@ map("n", "<leader>x", ":BufferClose<CR>", { desc = "Buffer close", noremap = tru
 
 map("n", "<C-u>", "<C-u>zz", { desc = "Half page up" })
 map("n", "<C-d>", "<C-d>zz", { desc = "Half page down" })
+
+-- Claude
+for _, dir in ipairs({ "Left", "Down", "Up", "Right" }) do
+  --map("t", "<C-" .. dir .. ">", "<C-\\><C-n><C-w><" .. dir .. ">", { desc = "Window " .. dir .. " from terminal" })
+  map("t", "<C-w><" .. dir .. ">", "<C-\\><C-n><C-w><" .. dir .. ">", { desc = "Window " .. dir .. " from terminal" })
+end
