@@ -1,12 +1,16 @@
-<a href="https://github.com/lamboley/dotfiles/actions/workflows/sast.yml"><img src="https://github.com/lamboley/dotfiles/actions/workflows/sast.yml/badge.svg" alt="sast" /></a>
-
 # Dotfiles
+
+[![License](https://img.shields.io/github/license/lamboley/aion2todo)](LICENSE)
+
+## Contents
+
+- [Installation](#installation)
+- [License](#license)
 
 ## Installation
 
-> ˋbashˋ est necessaire.
+- `curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh \| bash -`
 
-| Method    | Command                                                                                      |
-| :-------- | :------------------------------------------------------------------------------------------- |
-| **curl**  | `curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh \| bash -` |
-| **wget**  | `(wget -qO- https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh \| bash -` |
+## License
+
+[Apache License 2.0](LICENSE).

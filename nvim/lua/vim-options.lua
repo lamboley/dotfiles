@@ -1,3 +1,5 @@
+vim.cmd.colorscheme("catppuccin")
+
 vim.opt.number = true
 
 vim.opt.mouse = 'a'
@@ -23,6 +25,8 @@ vim.opt.ignorecase = true
 vim.opt.smartcase = true
 
 vim.opt.signcolumn = "yes"
+
+vim.opt.laststatus = 3
 
 vim.opt.splitright = true
 vim.opt.splitbelow = true

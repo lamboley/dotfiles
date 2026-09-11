@@ -23,12 +23,6 @@ map("n", "te", ":tabedit")
 map("n", "<leader>sh", ":split<Return><C-w>w", { desc = "splits horizontal", noremap = true })
 map("n", "<leader>sv", ":vsplit<Return><C-w>w", { desc = "Split vertical", noremap = true })
 
--- Navigate vim panes better
-map("n", "<C-k>", "<C-w>k", { desc = "Navigate up" })
-map("n", "<C-j>", "<C-w>j", { desc = "Navigate down" })
-map("n", "<C-h>", "<C-w>h", { desc = "Navigate left" })
-map("n", "<C-l>", "<C-w>l", { desc = "Navigate right" })
-
 -- Resize window
 map("n", "<C-Up>", ":resize -3<CR>")
 map("n", "<C-Down>", ":resize +3<CR>")
@@ -39,7 +33,6 @@ map("n", "<C-Right>", ":vertical resize +3<CR>")
 map("n", "<Tab>", ":BufferNext<CR>", { desc = "Move to next tab", noremap = true })
 map("n", "<S-Tab>", ":BufferPrevious<CR>", { desc = "Move to previous tab", noremap = true })
 map("n", "<leader>x", ":BufferClose<CR>", { desc = "Buffer close", noremap = true })
-map("n", "<A-p>", ":BufferPin<CR>", { desc = "Pin buffer", noremap = true })
 
 map("n", "<C-u>", "<C-u>zz", { desc = "Half page up" })
 map("n", "<C-d>", "<C-d>zz", { desc = "Half page down" })

@@ -103,6 +103,10 @@ return {
 		end, "Recent")
 
 		-- Atajos de Git
+		map("n", "<leader>gg", function()
+			snacks.lazygit()
+		end, "Lazygit")
+
 		map("n", "<leader>gb", function()
 			snacks.picker.git_branches()
 		end, "Git Branches")
