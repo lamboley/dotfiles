@@ -39,11 +39,6 @@ history = 10000
 [keyboard]
 bindings = [
   { key = "Return", mods = "Alt", action = "ToggleFullscreen" },
-  # Ctrl+/ n'a pas d'encodage standard : sans binding alacritty n'applique pas
-  # de transformation Ctrl a "/" et envoie un "/" nu, que nvim comprend comme
-  # l'ouverture de la recherche au lieu du mapping de commentaire. On envoie
-  # 0x1f (US), la convention historique de xterm pour Ctrl+/, que nvim lit
-  # comme <C-_> (mappe sur gcc dans nvim/lua/config/keymaps.lua).
   { key = "/", mods = "Control", chars = "\u001F" },
 ]
 

@@ -1,14 +1,12 @@
-# lazygit — https://github.com/jesseduffield/lazygit/blob/master/docs/Config.md
-
 gui:
-  nerdFontsVersion: "3" # FiraCode Nerd Font est installée -> icônes.
-  showFileTree: true # arbre de fichiers plutôt que liste à plat.
+  nerdFontsVersion: "3"
+  showFileTree: true
   showRandomTip: false
-  showCommandLog: false # masque le panneau de log en bas.
+  showCommandLog: false
   border: rounded
   skipRewordInEditorWarning: true
   mouseEvents: false
-  theme: # Catppuccin Mocha
+  theme:
     activeBorderColor:
       - "#cba6f7"
       - bold
@@ -29,7 +27,7 @@ gui:
     searchingActiveBorderColor:
       - "#f9e2af"
 os:
-  editPreset: "nvim" # ouvre les fichiers (touche `e`) dans Neovim.
+  editPreset: "nvim"
 git:
   pagers:
     - colorArg: always

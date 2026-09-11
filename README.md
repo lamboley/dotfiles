@@ -2,33 +2,11 @@
 
 # Dotfiles
 
-Ce projet contient mes dotfiles.
-Le fichier [install.sh](https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh) installe, **en user-local (`~/.local`), sans sudo** :
-
-- Le shell `Fish` (plugins via `fisher` : tide, z).
-- Les outils `zoxide`, `keychain`, `lazygit`, `yazi`.
-- L'éditeur `Neovim`.
-- Le multiplexeur `Zellij`.
-- `Golang`, le programme Go `sshm` et une config ssh.
-- La font `FiraCode Nerd Font` et le terminal `Alacritty` (GUI).
-
 ## Installation
 
 > ˋbashˋ est necessaire.
 
-| Method    | Command                                                                                           |
-| :-------- | :------------------------------------------------------------------------------------------------ |
-| **curl**  | `bash -c "$(curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"` |
-| **wget**  | `bash -c "$(wget -qO- https://raw.githubusercontent.com/lamboley/dotfiles/master/install/install.sh)"` |
-
-## Par outil
-
-Installer ou retirer **un seul** outil en user-local, sans relancer toute l'install :
-
-| Action          | Commande                               |
-| :-------------- | :------------------------------------- |
-| Installer       | `install/install.sh install <outil>`   |
-| Retirer (local) | `install/install.sh uninstall <outil>` |
-
-Outils : `zellij`, `lazygit`, `yazi`, `zoxide`, `keychain`, `go`, `sshm`, `nvim`.
-Les shells (`fish`) sont exclus pour éviter tout lockout.
+| Method    | Command                                                                                      |
+| :-------- | :------------------------------------------------------------------------------------------- |
+| **curl**  | `curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh \| bash -` |
+| **wget**  | `(wget -qO- https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh \| bash -` |
