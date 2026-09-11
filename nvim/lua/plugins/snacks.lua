@@ -28,14 +28,6 @@ return {
 
 			picker = {
 				sources = {
-					explorer = {
-						auto_close = false,
-						hidden = true,
-						ignored = false,
-						layout = {
-							layout = { position = "left" },
-						},
-					},
 					files = {
 						hidden = true,
 						ignored = false,
@@ -72,10 +64,6 @@ return {
 		map("n", "<leader>:", function()
 			snacks.picker.command_history()
 		end, "Command History")
-
-		map("n", "<leader>e", function()
-			snacks.explorer()
-		end, "File Explorer")
 
 		-- Atajos de búsqueda (Find)
 		map("n", "<leader>fb", function()

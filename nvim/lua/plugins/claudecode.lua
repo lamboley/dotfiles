@@ -19,7 +19,6 @@ return {
 		map("n", "<leader>ab", "<cmd>ClaudeCodeAdd %<cr>", "Add current buffer")
 		map("v", "<leader>as", "<cmd>ClaudeCodeSend<cr>", "Send selection to Claude")
 
-		-- Quand Claude propose une modification, elle s'ouvre en diff.
 		map("n", "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", "Accept diff")
 		map("n", "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", "Deny diff")
 	end,
