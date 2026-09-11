@@ -373,6 +373,7 @@ install_fisher() {
 deploy_zellij_config() {
   mkdir -p "$HOME/.config/zellij"
   ln -sf "$DOTFILES/zellij/config.kdl" "$HOME/.config/zellij/config.kdl"
+  ln -sfn "$DOTFILES/zellij/layouts" "$HOME/.config/zellij/layouts"
 }
 
 deploy_lazygit_config() {
@@ -780,7 +781,7 @@ uninstall_local() {
 cmd_uninstall() {
   case "${1:-}" in
     curl)     uninstall_local curl ;;
-    zellij)   uninstall_local zellij   "$HOME/.config/zellij/config.kdl" ;;
+    zellij)   uninstall_local zellij   "$HOME/.config/zellij/config.kdl" "$HOME/.config/zellij/layouts" ;;
     lazygit)  uninstall_local lazygit  "$HOME/.config/lazygit/config.yml" ;;
     yazi)     uninstall_local yazi; rm_user_bin ya ;;
     fd)       uninstall_local fd ;;
