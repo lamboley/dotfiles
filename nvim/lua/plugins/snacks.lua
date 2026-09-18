@@ -48,7 +48,7 @@ return {
 			})
 		end
 
-		-- Buscadores principales y Explorador de Archivos
+		-- Pickers and file explorer
 		map("n", "<leader><space>", function()
 			snacks.picker.smart()
 		end, "Smart Find Files")
@@ -65,7 +65,7 @@ return {
 			snacks.picker.command_history()
 		end, "Command History")
 
-		-- Atajos de búsqueda (Find)
+		-- Find
 		map("n", "<leader>fb", function()
 			snacks.picker.buffers()
 		end, "Buffers")
@@ -90,7 +90,7 @@ return {
 			snacks.picker.recent()
 		end, "Recent")
 
-		-- Atajos de Git
+		-- Git
 		map("n", "<leader>gg", function()
 			snacks.lazygit()
 		end, "Lazygit")
@@ -119,7 +119,7 @@ return {
 			snacks.picker.git_diff()
 		end, "Git Diff (Hunks)")
 
-		-- Atajos de LSP (Definiciones, Referencias y Símbolos)
+		-- LSP
 		vim.api.nvim_create_autocmd("LspAttach", {
 			group = vim.api.nvim_create_augroup("snacks-lsp-keymaps", { clear = true }),
 			callback = function(args)

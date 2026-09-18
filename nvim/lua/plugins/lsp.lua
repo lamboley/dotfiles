@@ -24,12 +24,16 @@ return {
 			},
 		})
 
-		-- LuaSnip carga los snippets estilo VS Code de friendly-snippets
+		-- Load friendly-snippets
 		require("luasnip").setup({})
 		require("luasnip.loaders.from_vscode").lazy_load()
 
 		require("blink.cmp").setup({
-			keymap = { preset = "super-tab" },
+			keymap = {
+				preset = "super-tab",
+				-- super-tab leaves <CR> unbound
+				["<CR>"] = { "accept", "fallback" },
+			},
 
 			snippets = { preset = "luasnip" },
 
@@ -39,6 +43,9 @@ return {
 
 			completion = {
 				documentation = { auto_show = true },
+				-- VSCode-like: first item preselected, <Tab> and <CR> both accept.
+				-- auto_insert = false so navigating the list doesn't edit the buffer.
+				list = { selection = { preselect = true, auto_insert = false } },
 			},
 
 			signature = {
@@ -49,6 +56,16 @@ return {
 
 		vim.lsp.config("*", {
 			capabilities = require("blink.cmp").get_lsp_capabilities(),
+		})
+
+		vim.lsp.config("lua_ls", {
+			-- root here, not the .git parent, so "lua/" resolves
+			root_dir = vim.fn.stdpath("config"),
+			settings = {
+				Lua = {
+					runtime = { path = { "lua/?.lua", "lua/?/init.lua" } },
+				},
+			},
 		})
 
 		vim.api.nvim_create_autocmd("LspAttach", {
