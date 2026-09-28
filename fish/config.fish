@@ -1,4 +1,4 @@
-fish_add_path -g $HOME/.local/go/bin $HOME/go/bin $HOME/.local/bin $HOME/bin
+fish_add_path -g /usr/local/go/bin $HOME/.local/go/bin $HOME/go/bin $HOME/.local/bin $HOME/bin
 
 set -gx COLORTERM truecolor
 
