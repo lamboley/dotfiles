@@ -82,6 +82,10 @@ return {
 			snacks.picker.git_files()
 		end, "Find Git Files")
 
+		map("n", "<leader>fk", function()
+			snacks.picker.keymaps()
+		end, "Keymaps")
+
 		map("n", "<leader>fp", function()
 			snacks.picker.projects()
 		end, "Projects")
