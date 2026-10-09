@@ -54,7 +54,7 @@ keybinds clear-defaults=true {
         bind "s" { ToggleActiveSyncTab; SwitchToMode "normal"; }
         bind "Ctrl t" { SwitchToMode "normal"; }
         bind "x" { CloseTab; SwitchToMode "normal"; }
-        bind "tab" { ToggleTab; }
+        bind "tab" { ToggleTab; SwitchToMode "locked"; }
     }
     resize {
         bind "left" { Resize "Increase left"; }
@@ -330,7 +330,7 @@ default_shell "fish"
 // The name of the default layout to load on startup
 // Default: "default"
 // 
-default_layout "nobar"
+default_layout "compact"
  
 // The folder in which Zellij will look for layouts
 // (Requires restart)

@@ -1,0 +1,11 @@
+// Single pane plus a one-line compact bar at the bottom.
+// The bar shows the current mode (LOCKED / NORMAL / TAB / PANE...) and the tabs,
+// which the bare "nobar" layout hides, so you can always tell where your keys go.
+layout {
+    default_tab_template {
+        children
+        pane size=1 borderless=true {
+            plugin location="compact-bar"
+        }
+    }
+}

@@ -16,10 +16,12 @@ return {
 			go = { "golangcilint" },
 		}
 
-		-- Lint when a file is opened, after every save, and when leaving insert mode.
+		-- Lint once the filetype is known (on open), after every save, and when leaving insert mode.
+		-- FileType rather than BufReadPost: this autocmd is registered before Neovim's own
+		-- filetype detection, so on BufReadPost the filetype would still be empty.
 		-- try_lint only runs the linters listed for the buffer's filetype,
 		-- and does nothing for filetypes that are not in the table above.
-		vim.api.nvim_create_autocmd({ "BufReadPost", "BufWritePost", "InsertLeave" }, {
+		vim.api.nvim_create_autocmd({ "FileType", "BufWritePost", "InsertLeave" }, {
 			group = vim.api.nvim_create_augroup("lint", { clear = true }),
 			callback = function()
 				if vim.bo.modifiable then
