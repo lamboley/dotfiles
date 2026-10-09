@@ -22,6 +22,8 @@ return {
 				"shfmt",
 				"prettier",
 				"tailwindcss",
+				"markdownlint-cli2",
+				"golangci-lint",
 			},
 		})
 
