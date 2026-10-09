@@ -39,62 +39,61 @@ bindings = [
   { key = "/", mods = "Control", chars = "\u001F" },
 ]
 
-# Catppuccin Latte (light variant, chosen to reduce screen glare).
-# Previous Mocha palette is in git history if you want it back.
+# Catppuccin Mocha
 [colors.primary]
-background = "#eff1f5"
-foreground = "#4c4f69"
-dim_foreground = "#8c8fa1"
-bright_foreground = "#4c4f69"
+background = "#1e1e2e"
+foreground = "#cdd6f4"
+dim_foreground = "#7f849c"
+bright_foreground = "#cdd6f4"
 
 [colors.cursor]
-text = "#eff1f5"
-cursor = "#dc8a78"
+text = "#1e1e2e"
+cursor = "#f5e0dc"
 
 [colors.vi_mode_cursor]
-text = "#eff1f5"
-cursor = "#7287fd"
+text = "#1e1e2e"
+cursor = "#b4befe"
 
 [colors.search.matches]
-foreground = "#eff1f5"
-background = "#6c6f85"
+foreground = "#1e1e2e"
+background = "#a6adc8"
 
 [colors.search.focused_match]
-foreground = "#eff1f5"
-background = "#40a02b"
+foreground = "#1e1e2e"
+background = "#a6e3a1"
 
 [colors.footer_bar]
-foreground = "#eff1f5"
-background = "#6c6f85"
+foreground = "#1e1e2e"
+background = "#a6adc8"
 
 [colors.hints.start]
-foreground = "#eff1f5"
-background = "#df8e1d"
+foreground = "#1e1e2e"
+background = "#f9e2af"
 
 [colors.hints.end]
-foreground = "#eff1f5"
-background = "#6c6f85"
+foreground = "#1e1e2e"
+background = "#a6adc8"
 
 [colors.selection]
-text = "#eff1f5"
-background = "#dc8a78"
+text = "#1e1e2e"
+background = "#f5e0dc"
 
 [colors.normal]
-black = "#bcc0cc"
-red = "#d20f39"
-green = "#40a02b"
-yellow = "#df8e1d"
-blue = "#1e66f5"
-magenta = "#ea76cb"
-cyan = "#179299"
-white = "#5c5f77"
+black = "#45475a"
+red = "#f38ba8"
+green = "#a6e3a1"
+yellow = "#f9e2af"
+blue = "#89b4fa"
+magenta = "#f5c2e7"
+cyan = "#94e2d5"
+white = "#bac2de"
 
 [colors.bright]
-black = "#acb0be"
-red = "#d20f39"
-green = "#40a02b"
-yellow = "#df8e1d"
-blue = "#1e66f5"
-magenta = "#ea76cb"
-cyan = "#179299"
-white = "#6c6f85"
+black = "#585b70"
+red = "#f38ba8"
+green = "#a6e3a1"
+yellow = "#f9e2af"
+blue = "#89b4fa"
+magenta = "#f5c2e7"
+cyan = "#94e2d5"
+white = "#a6adc8"
