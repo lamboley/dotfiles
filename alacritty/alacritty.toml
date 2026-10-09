@@ -21,7 +21,7 @@ startup_mode = "Windowed"
 decorations = "Full"
 
 [terminal.shell]
-program = "zellij"
+program = "clear"
 
 [cursor]
 unfocused_hollow = true
