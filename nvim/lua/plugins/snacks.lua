@@ -123,6 +123,10 @@ return {
 			snacks.picker.git_diff()
 		end, "Git Diff (Hunks)")
 
+		-- Windows
+		snacks.toggle.zoom():map("<leader>wm"):map("<leader>uZ")
+		snacks.toggle.zen():map("<leader>uz")
+
 		-- LSP
 		vim.api.nvim_create_autocmd("LspAttach", {
 			group = vim.api.nvim_create_augroup("snacks-lsp-keymaps", { clear = true }),
