@@ -1,6 +1,6 @@
 # Dotfiles
 
-[![License](https://img.shields.io/github/license/lamboley/aion2todo)](LICENSE)
+[![License](https://img.shields.io/github/license/lamboley/.dotfiles)](LICENSE)
 
 ## Contents
 

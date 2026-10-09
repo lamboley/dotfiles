@@ -1,5 +1,4 @@
-require("vim-options")
-require("keymaps")
-require("cmds")
-require("plugins")
-
+require("config.keymaps")
+require("config.options")
+require("config.colorscheme")
+require("config.plugins")

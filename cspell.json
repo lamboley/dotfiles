@@ -1,0 +1,23 @@
+{
+    "version": "0.2",
+    "language": "en-US, en-GB, fr, fr-fr, en",
+    "caseSensitive": false,
+    "allowCompoundWords": true,
+    "ignorePaths": [
+        "LICENSE"
+    ],
+    "dictionaries": [
+        "bash",
+        "fr-fr",
+        "golang",
+        "typescript",
+        "vue",
+        "lua"
+    ],
+    "words": [
+        "catppuccin",
+        "hjkl",
+        "noremap",
+        "termguicolors"
+    ]
+}
