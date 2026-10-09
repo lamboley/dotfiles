@@ -20,9 +20,6 @@ blur = true
 startup_mode = "Windowed"
 decorations = "Full"
 
-[terminal.shell]
-program = "clear"
-
 [cursor]
 unfocused_hollow = true
 
