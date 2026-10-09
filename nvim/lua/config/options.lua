@@ -11,6 +11,7 @@ vim.g.snacks_animate = true
 vim.g.deprecation_warnings = false
 
 local opt = vim.opt
+opt.autoread = true -- Reload files changed outside nvim (checktime below triggers it)
 opt.autowrite = true -- Enable auto write
 opt.completeopt = "menu,menuone,noselect" -- Control appearance of completion menu
 opt.confirm = true -- Confirm to save changes before exiting modified buffer
@@ -32,3 +33,8 @@ opt.termguicolors = true -- True color support
 opt.undofile = true
 opt.undolevels = 10000
 opt.wildmode = "longest:full,full" -- Command-line completion mode
+
+-- autoread only applies when nvim checks the file; poll on the usual idle points
+vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold" }, {
+	command = "checktime",
+})
