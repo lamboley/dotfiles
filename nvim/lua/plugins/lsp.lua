@@ -21,6 +21,7 @@ return {
 				"stylua",
 				"shfmt",
 				"prettier",
+				"tailwindcss",
 			},
 		})
 
@@ -86,6 +87,6 @@ return {
 				vim.keymap.set("n", "K", vim.lsp.buf.hover, vim.tbl_extend("force", opts, { desc = "Hover docs" }))
 			end,
 		})
-		vim.lsp.enable({ "lua_ls", "bashls" })
+		vim.lsp.enable({ "lua_ls", "bashls", "tailwindcss" })
 	end,
 }
