@@ -248,6 +248,13 @@ deploy_alacritty() {
   ln -sf "$DOTFILES/alacritty/alacritty.toml" "$HOME/.config/alacritty/alacritty.toml"
 }
 
+deploy_emacs() {
+  backup_if_real "$HOME/.emacs"
+  backup_if_real "$HOME/.emacs.custom.el"
+  ln -sf "$DOTFILES/emacs/emacs" "$HOME/.emacs"
+  ln -sf "$DOTFILES/emacs/custom.el" "$HOME/.emacs.custom.el"
+}
+
 # Amorce curl quand l'hôte n'a que wget : fisher n'a pas de repli.
 ensure_curl() {
   check_cmd curl && return 0
