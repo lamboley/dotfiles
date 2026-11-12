@@ -37,6 +37,7 @@ history = 10000
 bindings = [
   { key = "Return", mods = "Alt", action = "ToggleFullscreen" },
   { key = "/", mods = "Control", chars = "\u001F" },
+  { key = "Space", mods = "Control", chars = "\u0000" },
 ]
 
 # Catppuccin Mocha
