@@ -253,15 +253,6 @@ deploy_emacs() {
   backup_if_real "$HOME/.emacs.custom.el"
   ln -sf "$DOTFILES/emacs/emacs" "$HOME/.emacs"
   ln -sf "$DOTFILES/emacs/custom.el" "$HOME/.emacs.custom.el"
-  check_cmd emacs || return 0
-  info "emacs : installation des paquets (package-selected-packages)"
-  quiet emacs --batch \
-    --eval "(require 'package)" \
-    --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)" \
-    --eval "(package-initialize)" \
-    --eval "(package-refresh-contents)" \
-    --eval "(load custom-file 'noerror)" \
-    --eval "(package-install-selected-packages t)"
 }
 
 # Amorce curl quand l'hôte n'a que wget : fisher n'a pas de repli.
