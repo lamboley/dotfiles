@@ -19,6 +19,7 @@ if status is-interactive
     alias lg lazygit
     alias c claude
     alias vim nvim
+    alias emacs 'emacs -nw'
 
     # Agent SSH avec Keychain
     if command -q keychain
