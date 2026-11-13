@@ -1,8 +1,0 @@
-(setq custom-file "~/.emacs.custom.el")
-(load custom-file 'noerror)
-
-(tool-bar-mode 0)(menu-bar-mode 0)
-(scroll-bar-mode 0)
-(global-display-line-numbers-mode)
-
-(load-theme 'deeper-blue t)
