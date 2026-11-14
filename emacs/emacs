@@ -1,10 +1,8 @@
-;; -*- lexical-binding: t; -*-
-
 ;;; ----- Basic Configuration -----
 
 ;; Core settings
 (setq
-      ;; No startup message
+      ;; Start with an empty buffer, not the startup message
       inhibit-startup-message t
 
       ;; Instruct auto-save-mode to save to the current file, not a backup file
@@ -13,18 +11,16 @@
       ;; No backup files
       make-backup-files nil
 
-      indent-line-function 'insert-tab
-
-
       ;; Follow symlinks to VC-controlled files without warning
-      vc-follow-symlinks t)
+      vc-follow-symlinks t
+
+      ;; Set up the visible bell
+      visible-bell t)
 
 ;; Core modes
-(menu-bar-mode 0)           ;; Hide the menu bar
-(tool-bar-mode 0)           ;; Hide the tool bar
-(scroll-bar-mode 0)         ;; Hide the scroll bar
-(xterm-mouse-mode 1)        ;; Enable mouse events in terminal Emacs
-(global-auto-revert-mode 1) ;; Refresh buffers with changed local files
+(menu-bar-mode 0)    ;; Hide the menu bar
+(tool-bar-mode 0)    ;; Hide the tool bar
+(xterm-mouse-mode 1) ;; Enable mouse events in terminal Emacs
 
 ;; Tabs to spaces
 (setq-default indent-tabs-mode nil
@@ -64,9 +60,6 @@
         ;; Cycle through completion options vertically, not
         ;; horizontally.
         completions-format 'vertical
-
-        ;; Sort recently used completions first.
-        completions-sort 'historical
 
         ;; Only show up to 10 lines in the completions window.
         completions-max-height 10
