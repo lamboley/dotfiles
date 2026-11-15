@@ -8,9 +8,6 @@
 ;;
 ;;; Core
 
-;; Disable startup screen
-(setq inhibit-startup-message t)
-
 ;; Instruct auto-save-mode to save to the current file, not a backup file
 (setq auto-save-default nil)
 
