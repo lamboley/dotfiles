@@ -1,37 +1,537 @@
 ;;; emacs -*- lexical-binding: t; -*-
 ;;
-;; Author:  Lucas Lamboley
-;; URL:     https://github.com/lamboley/dotfiles
+;; Copyright (c) 2026 Lucas Lamboley
+;;
+;; Author: Lucas Lamboley  <lucas.lamboley@outlook.com>
+;; URL:    https://github.com/lamboley/dotfiles
 
 ;;
-;;; Core settings
+;;; Core
 
+;; Disable startup screen
 (setq inhibit-startup-message t)
+
+;; Instruct auto-save-mode to save to the current file, not a backup file
 (setq auto-save-default nil)
+
+;; No backup files
 (setq make-backup-files nil)
+
+;; Follow symlinks to VC-controlled files without warning
 (setq vc-follow-symlinks t)
 
-;;
-;;; Core modes
+;; Quit Emacs directly even if there are running processes
+(setq confirm-kill-processes nil)
 
+;; Disable the bell ring
+(setq ring-bell-function 'ignore)
+
+;; Enable y/n answers
+(setq use-short-answers t)
+
+;; Automatically select help windows so you can dismiss them with 'q'
+(setq help-window-select t)
+
+;; Newline at end of file
+(setq require-final-newline t)
+
+;; Enable repeating key maps
+(repeat-mode 1)
+
+;; Hide the menu bar
 (menu-bar-mode 0)
+
+;; Hide the tool bar
 (tool-bar-mode 0)
+
+;; Hide the scroll bar
+(scroll-bar-mode 0)
+
+;; Enable mouse events in terminal Emacs
 (xterm-mouse-mode 1)
-(global-display-line-numbers-mode 1)
 
-;;
-;;; Editing
-
-(setq-default indent-tabs-mode nil)
-(setq-default tab-width 2)
-(setopt tab-always-indent 'complete)
-
-(add-hook 'before-save-hook 'delete-trailing-whitespace)
+;; Display line numbers
+(dolist (hook '(prog-mode-hook text-mode-hook conf-mode-hook))
+  (add-hook hook #'display-line-numbers-mode))
 
 ;; Move customization settings out of .emacs
 (setq custom-file (expand-file-name ".emacs.custom.el" user-emacs-directory))
 (when (file-exists-p custom-file)
   (load custom-file t))
+
+;;
+;;; Package
+
+(require 'package)
+
+(add-to-list 'package-archives
+             '("melpa" . "https://melpa.org/packages/") t)
+
+(package-initialize)
+(unless package-archive-contents
+ (package-refresh-contents))
+
+(require 'use-package)
+
+;; Automatically install packages
+(setq use-package-always-ensure t)
+
+;;
+;;; Editing
+
+;; use space instead of tabs for indent
+(setq-default indent-tabs-mode nil)
+
+;; Indent using two space
+(setq-default tab-width 2)
+
+;; Try to indent line, if already indented, trigger symbol completion
+(setopt tab-always-indent 'complete)
+
+;; Delete whitespace on save
+(add-hook 'before-save-hook 'delete-trailing-whitespace)
+
+;; Duplicate the current line
+(global-set-key (kbd "C-c d") #'duplicate-dwim)
+
+;; Delete the selection with a keypress
+(delete-selection-mode t)
+
+;; Improve scrolling
+(setq scroll-margin 0
+      scroll-conservatively 100000
+      scroll-preserve-screen-position 1)
+
+(use-package ultra-scroll
+  :config
+  (ultra-scroll-mode +1))
+
+;; which-key - show available keybindings in a popup
+(use-package which-key
+  :ensure t
+  :config
+  (which-key-mode +1))
+
+(use-package paren
+  :config
+  (show-paren-mode +1)
+  (setq show-paren-context-when-offscreen 'overlay))
+
+(use-package calendar
+  :defer t
+  :config
+  (setq calendar-week-start-day 1))
+
+(use-package time
+  :defer t
+  :config
+  (setq world-clock-list
+        '(("America/New_York" "New York")
+          ("Europe/Paris" "Paris"))))
+
+;; Highlight the current line
+(use-package hl-line
+  :config
+  (global-hl-line-mode +1))
+
+(use-package dired
+  :ensure nil
+  :defer t
+  :config
+  ;; dired - reuse current buffer by pressing 'a'
+  (put 'dired-find-alternate-file 'disabled nil)
+
+  ;; always delete and copy recursively
+  (setq dired-recursive-deletes 'always)
+  (setq dired-recursive-copies 'always)
+
+  ;; if there is a dired buffer displayed in the next window, use its
+  ;; current subdir, instead of the current subdir of this dired buffer
+  (setq dired-dwim-target t)
+
+  ;; Drag files from dired to other apps
+  (setq dired-mouse-drag-files t)
+
+  ;; Enable some really cool extensions like C-x C-j(dired-jump)
+  (require 'dired-x))
+
+(use-package magit
+  :bind (("C-x g" . magit-status)))
+
+(use-package diminish)
+
+;; rainbow-mode - colorize color strings like #ff0000 and rgb(...)
+(use-package rainbow-mode
+  :hook prog-mode
+  :diminish)
+
+;; hl-todo - highlight TODO, FIXME, etc. in comments
+(use-package hl-todo
+  :config
+  (setq hl-todo-highlight-punctuation ":")
+  (global-hl-todo-mode +1))
+
+;; diff-hl - highlight uncommitted changes in the fringe
+(use-package diff-hl
+  :config
+  (global-diff-hl-mode +1)
+  (add-hook 'dired-mode-hook 'diff-hl-dired-mode))
+
+;; ace-window - quickly switch between windows using number labels
+(use-package ace-window
+  :bind (("s-w" . ace-window)
+         ([remap other-window] . ace-window)))
+
+(use-package mistty
+  :bind (("C-c v" . mistty)))
+
+;;
+;;; Completion
+
+;; Enable rich annotations using the Marginalia package
+(use-package marginalia
+  ;; Either bind `marginalia-cycle' globally or only in the minibuffer
+  :bind (("M-A" . marginalia-cycle)
+         :map minibuffer-local-map
+         ("M-A" . marginalia-cycle))
+
+  ;; The :init configuration is always executed (Not lazy!)
+  :init
+
+  ;; Must be in the :init section of use-package such that the mode gets
+  ;; enabled right away. Note that this forces loading the package.
+  (marginalia-mode))
+
+;; Enable vertico
+(use-package vertico
+  :init
+  (vertico-mode)
+
+  ;; Different scroll margin
+  ;; (setq vertico-scroll-margin 0)
+
+  ;; Show more candidates
+  ;; (setq vertico-count 20)
+
+  ;; Grow and shrink the Vertico minibuffer
+  ;; (setq vertico-resize t)
+
+  ;; Optionally enable cycling for `vertico-next' and `vertico-previous'.
+  ;; (setq vertico-cycle t)
+  )
+
+;; vertico-directory - smarter path editing in file prompts (ships as
+;; part of vertico): RET descends into the selected directory instead
+;; of visiting it in dired, DEL deletes a whole directory component at
+;; once and M-DEL deletes just a word of it
+(use-package vertico-directory
+  :ensure nil ; comes with vertico
+  :after vertico
+  :bind (:map vertico-map
+              ("RET" . vertico-directory-enter)
+              ("DEL" . vertico-directory-delete-char)
+              ("M-DEL" . vertico-directory-delete-word))
+  ;; clean up the shadowed part of the file path when you re-root it
+  ;; (e.g. type ~/ or / in the middle of a path)
+  :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
+
+;; vertico-repeat - resume the last minibuffer session with its input
+;; and candidate intact (also ships with vertico).  Handy after you
+;; abort a consult-ripgrep to check something and want it back.  The
+;; history is persisted via `savehist-additional-variables'
+(use-package vertico-repeat
+  :ensure nil ; comes with vertico
+  :after vertico
+  :hook (minibuffer-setup . vertico-repeat-save)
+  :bind ("M-R" . vertico-repeat))
+
+;; A few more useful configurations for Vertico
+(use-package emacs
+  :init
+  ;; Add prompt indicator to `completing-read-multiple'.
+  ;; We display [CRM<separator>], e.g., [CRM,] if the separator is a comma.
+  (defun crm-indicator (args)
+    (cons (format "[CRM%s] %s"
+                  (replace-regexp-in-string
+                   "\\`\\[.*?]\\*\\|\\[.*?]\\*\\'" ""
+                   crm-separator)
+                  (car args))
+          (cdr args)))
+  (advice-add #'completing-read-multiple :filter-args #'crm-indicator)
+
+  ;; Do not allow the cursor in the minibuffer prompt
+  (setq minibuffer-prompt-properties
+        '(read-only t cursor-intangible t face minibuffer-prompt))
+  (add-hook 'minibuffer-setup-hook #'cursor-intangible-mode)
+
+  ;; hide commands in M-x which do not work in the current mode
+  (setq read-extended-command-predicate
+        #'command-completion-default-include-p)
+
+  ;; Enable recursive minibuffers
+  (setq enable-recursive-minibuffers t))
+
+;; use the `orderless' completion style.
+(use-package orderless
+  :init
+  ;; Configure a custom style dispatcher (see the Consult wiki)
+  ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
+  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+  (setq completion-styles '(orderless basic)
+        completion-category-defaults nil
+        completion-category-overrides '((file (styles partial-completion)))))
+
+(use-package consult
+  :bind (
+         ;; C-x bindings (ctl-x-map)
+         ("C-x M-:" . consult-complex-command)     ;; orig. repeat-complex-command
+         ("C-x b" . consult-buffer)                ;; orig. switch-to-buffer
+         ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
+         ("C-x 5 b" . consult-buffer-other-frame)  ;; orig. switch-to-buffer-other-frame
+         ;; Custom M-# bindings for fast register access
+         ("M-#" . consult-register-load)
+         ("M-'" . consult-register-store)          ;; orig. abbrev-prefix-mark (unrelated)
+         ("C-M-#" . consult-register)
+         ;; Other custom bindings
+         ("M-y" . consult-yank-pop)                ;; orig. yank-pop
+         ;; M-g bindings (goto-map)
+         ("M-g e" . consult-compile-error)
+         ("M-g g" . consult-goto-line)             ;; orig. goto-line
+         ("M-g M-g" . consult-goto-line)           ;; orig. goto-line
+         ("M-g o" . consult-outline)               ;; Alternative: consult-org-heading
+         ("M-g m" . consult-mark)
+         ("M-g k" . consult-global-mark)
+         ("M-g i" . consult-imenu)
+         ("M-g I" . consult-imenu-multi)
+         ("s-i" . consult-imenu)
+         ;; M-s bindings (search-map)
+         ("M-s f" . consult-find)
+         ("M-s F" . consult-locate)
+         ("M-s g" . consult-grep)
+         ("M-s G" . consult-git-grep)
+         ("M-s r" . consult-ripgrep)
+         ("M-s l" . consult-line)
+         ("M-s L" . consult-line-multi)
+         ("M-s k" . consult-keep-lines)
+         ("M-s u" . consult-focus-lines))
+
+  :config
+  ;; press < followed by a group key to narrow the candidates to one
+  ;; group (e.g. in consult-buffer: < b for buffers, < f for files,
+  ;; < p for project buffers); < again removes the narrowing
+  (setq consult-narrow-key "<"))
+
+;; consult-flycheck - jump to a flycheck diagnostic through consult,
+;; with live preview.  It's a separate package from consult, so it
+;; needs its own declaration
+;; embark - context actions on minibuffer candidates and things at point
+(use-package embark
+  :bind (("C-." . embark-act)
+         ("C-;" . embark-dwim)
+         ("C-h B" . embark-bindings))
+  :init
+  ;; use embark to browse the available keybindings for a prefix (C-h
+  ;; after the prefix), instead of the bare completing-read
+  (setq prefix-help-command #'embark-prefix-help-command))
+
+;; embark-consult - integration between embark and consult
+;; (e.g. embark-export from consult-ripgrep into a grep buffer)
+(use-package embark-consult
+  :hook (embark-collect-mode . consult-preview-at-point-mode))
+
+;; wgrep - edit grep/occur buffers and apply the changes to the files
+;; (press C-c C-p in a grep buffer, edit, then C-c C-e to apply)
+(use-package wgrep
+  :defer t
+  :config
+  ;; save the affected buffers automatically after applying the edits
+  (setq wgrep-auto-save-buffer t))
+
+;; casual - transient (magit-style) menus for a bunch of built-in
+;; modes, so you can drive them without remembering their keybindings;
+;; C-o pops the menu in each supported mode (in dired and ibuffer this
+;; shadows the "display in other window" commands, which I never use)
+(when (>= emacs-major-version 30)
+(use-package casual
+  :defer t
+  :init
+  (keymap-set isearch-mode-map "C-o" #'casual-isearch-tmenu)
+  (with-eval-after-load 'dired
+    (keymap-set dired-mode-map "C-o" #'casual-dired-tmenu))
+  (with-eval-after-load 'ibuffer
+    (keymap-set ibuffer-mode-map "C-o" #'casual-ibuffer-tmenu))
+  (with-eval-after-load 'info
+    (keymap-set Info-mode-map "C-o" #'casual-info-tmenu))
+  (with-eval-after-load 'calc
+    (keymap-set calc-mode-map "C-o" #'casual-calc-tmenu))
+  (with-eval-after-load 're-builder
+    (keymap-set reb-mode-map "C-o" #'casual-re-builder-tmenu))
+  (with-eval-after-load 'bookmark
+    (keymap-set bookmark-bmenu-mode-map "C-o" #'casual-bookmarks-tmenu))
+  (with-eval-after-load 'help-mode
+    (keymap-set help-mode-map "C-o" #'casual-help-tmenu))))
+
+(use-package corfu
+  ;; Optional customizations
+  :custom
+  (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+  (corfu-auto t)                 ;; Enable auto completion
+  ;; (corfu-separator ?\s)          ;; Orderless field separator
+  ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+  ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+  ;; (corfu-preview-current nil)    ;; Disable current candidate preview
+  ;; (corfu-preselect 'prompt)      ;; Preselect the prompt
+  ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
+  ;; (corfu-scroll-margin 5)        ;; Use scroll margin
+
+  ;; Enable Corfu only for certain modes.
+  ;; :hook ((prog-mode . corfu-mode)
+  ;;        (shell-mode . corfu-mode)
+  ;;        (eshell-mode . corfu-mode))
+
+  ;; Recommended: Enable Corfu globally.
+  ;; This is recommended since Dabbrev can be used globally (M-/).
+  ;; See also `corfu-excluded-modes'.
+  :init
+  (global-corfu-mode)
+  ;; show candidate documentation in a popup next to the completions
+  (corfu-popupinfo-mode +1)
+  ;; sort candidates by recency of selection, so frequently used
+  ;; completions bubble up to the top (part of corfu; the history
+  ;; persists across sessions automatically via our savehist-mode)
+  (corfu-history-mode +1))
+
+;; cape - extra completion-at-point backends to feed corfu
+(use-package cape
+  :init
+  ;; complete words from the current buffers and file names everywhere,
+  ;; in addition to whatever the major mode's capf offers
+  (add-hook 'completion-at-point-functions #'cape-dabbrev)
+  (add-hook 'completion-at-point-functions #'cape-file))
+
+;; completion-preview - built-in (Emacs 30+) inline "ghost text"
+;; preview of the top completion candidate as you type; a lightweight
+;; complement to corfu's popup.  While a preview is visible TAB
+;; accepts it and M-i completes up to the longest common prefix of
+;; all candidates.
+(when (>= emacs-major-version 30)
+(use-package completion-preview
+  :ensure nil
+  :config
+  ;; cycle through the other candidates (these commands exist, but
+  ;; have no default bindings)
+  (define-key completion-preview-active-mode-map (kbd "M-n") #'completion-preview-next-candidate)
+  (define-key completion-preview-active-mode-map (kbd "M-p") #'completion-preview-prev-candidate)
+  (global-completion-preview-mode +1)))
+
+;;
+;;; Programming
+
+;; prefer the built-in tree-sitter major modes, but only for the
+;; languages whose grammars are actually installed (see
+;; treesit-install-language-grammar)
+(require 'treesit)
+
+;; grammar recipes, so a fresh machine can provision any missing
+;; grammar with M-x treesit-install-language-grammar
+(setq treesit-language-source-alist
+      '((bash "https://github.com/tree-sitter/tree-sitter-bash")
+        (dockerfile "https://github.com/camdencheek/tree-sitter-dockerfile")
+        (elixir "https://github.com/elixir-lang/tree-sitter-elixir")
+        (go "https://github.com/tree-sitter/tree-sitter-go")
+        (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
+        (heex "https://github.com/phoenixframework/tree-sitter-heex")
+        (javascript "https://github.com/tree-sitter/tree-sitter-javascript")
+        (json "https://github.com/tree-sitter/tree-sitter-json")
+        (python "https://github.com/tree-sitter/tree-sitter-python")
+        (ruby "https://github.com/tree-sitter/tree-sitter-ruby")
+        (rust "https://github.com/tree-sitter/tree-sitter-rust")
+        ;; the default branch doesn't include the generated parser
+        (swift "https://github.com/alex-pinkus/tree-sitter-swift" "with-generated-files")
+        (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+        (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+        (yaml "https://github.com/ikatyang/tree-sitter-yaml")))
+
+(when (treesit-available-p)
+  (pcase-dolist (`(,mode ,ts-mode ,lang)
+                 '((ruby-mode ruby-ts-mode ruby)
+                   (js-mode js-ts-mode javascript)
+                   ;; .js files resolve to the javascript-mode alias,
+                   ;; which needs its own remap entry
+                   (javascript-mode js-ts-mode javascript)
+                   (js-json-mode json-ts-mode json)
+                   (python-mode python-ts-mode python)
+                   (sh-mode bash-ts-mode bash)))
+    (when (treesit-language-available-p lang)
+      (add-to-list 'major-mode-remap-alist (cons mode ts-mode))))
+
+  ;; ts modes without a non-ts counterpart to remap
+  (when (treesit-language-available-p 'go)
+    (add-to-list 'auto-mode-alist '("\\.go\\'" . go-ts-mode)))
+  (when (treesit-language-available-p 'gomod)
+    (add-to-list 'auto-mode-alist '("/go\\.mod\\'" . go-mod-ts-mode)))
+  (when (treesit-language-available-p 'rust)
+    (add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-ts-mode)))
+  (when (treesit-language-available-p 'yaml)
+    (add-to-list 'auto-mode-alist '("\\.ya?ml\\'" . yaml-ts-mode)))
+  (when (treesit-language-available-p 'typescript)
+    (add-to-list 'auto-mode-alist '("\\.ts\\'" . typescript-ts-mode))
+    (add-to-list 'auto-mode-alist '("\\.tsx\\'" . tsx-ts-mode))
+    ;; tsx-ts-mode handles plain JSX just fine as well
+    (add-to-list 'auto-mode-alist '("\\.jsx\\'" . tsx-ts-mode)))
+  (when (treesit-language-available-p 'dockerfile)
+    (add-to-list 'auto-mode-alist
+                 '("\\(?:Dockerfile\\(?:\\..*\\)?\\|\\.[Dd]ockerfile\\)\\'"
+                   . dockerfile-ts-mode))))
+
+;; Built-in LSP client (powers Go, JS, Vue, Bash, and YAML)
+(use-package eglot
+  :ensure nil
+  :defer t
+  :custom
+  (eglot-autoshutdown t)
+  (eglot-events-buffer-config '(:size 0 :format full)))
+
+;; JavaScript (covers both js-mode and js-ts-mode)
+(use-package js
+  :ensure nil
+  :hook ((js-base-mode . eglot-ensure)
+         (js-base-mode . subword-mode))
+  :custom
+  (js-indent-level 2))
+
+;; Go (built-in tree-sitter mode)
+(use-package go-ts-mode
+  :ensure nil
+  :hook ((go-ts-mode . eglot-ensure)
+         (go-ts-mode . subword-mode))
+  :custom
+  (go-ts-mode-indent-offset 8))
+
+;; Bash / Shell scripts (built-in sh-mode and bash-ts-mode)
+(use-package sh-script
+  :ensure nil
+  :hook ((sh-base-mode . eglot-ensure)
+         (sh-base-mode . subword-mode)))
+
+;; YAML (built-in yaml-ts-mode in Emacs 29+, or yaml-mode from MELPA)
+(use-package yaml-ts-mode
+  :ensure nil
+  :mode "\\.ya?ml\\'"
+  :hook (yaml-ts-mode . eglot-ensure))
+
+;; Vue (.vue single-file components via vue-mode or web-mode)
+(use-package web-mode
+  :ensure t
+  :mode "\\.vue\\'"
+  :hook ((web-mode . eglot-ensure)
+         (web-mode . subword-mode))
+  :custom
+  (web-mode-markup-indent-offset 2)
+  (web-mode-css-indent-offset 2)
+  (web-mode-code-indent-offset 2)
+  (web-mode-script-padding 0)
+  (web-mode-style-padding 0))
 
 ;;
 ;;; Appearance
