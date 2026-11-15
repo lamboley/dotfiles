@@ -1,35 +1,31 @@
-;;; ----- Basic Configuration -----
+;;; emacs -*- lexical-binding: t; -*-
+;;
+;; Author:  Lucas Lamboley
+;; URL:     https://github.com/lamboley/dotfiles
 
-;; Core settings
-(setq
-      ;; Start with an empty buffer, not the startup message
-      inhibit-startup-message t
+;;
+;;; Core settings
 
-      ;; Instruct auto-save-mode to save to the current file, not a backup file
-      auto-save-default nil
+(setq inhibit-startup-message t)
+(setq auto-save-default nil)
+(setq make-backup-files nil)
+(setq vc-follow-symlinks t)
 
-      ;; No backup files
-      make-backup-files nil
+;;
+;;; Core modes
 
-      ;; Follow symlinks to VC-controlled files without warning
-      vc-follow-symlinks t
+(menu-bar-mode 0)
+(tool-bar-mode 0)
+(xterm-mouse-mode 1)
+(global-display-line-numbers-mode 1)
 
-      ;; Set up the visible bell
-      visible-bell t)
+;;
+;;; Editing
 
-;; Core modes
-(menu-bar-mode 0)    ;; Hide the menu bar
-(tool-bar-mode 0)    ;; Hide the tool bar
-(xterm-mouse-mode 1) ;; Enable mouse events in terminal Emacs
+(setq-default indent-tabs-mode nil)
+(setq-default tab-width 2)
+(setopt tab-always-indent 'complete)
 
-;; Tabs to spaces
-(setq-default indent-tabs-mode nil
-	            tab-width 2)
-
-;; Display line numbers in programming modes
-(add-hook 'prog-mode-hook #'display-line-numbers-mode)
-
-;; Delete trailing whitespace before saving buffers
 (add-hook 'before-save-hook 'delete-trailing-whitespace)
 
 ;; Move customization settings out of .emacs
@@ -37,48 +33,14 @@
 (when (file-exists-p custom-file)
   (load custom-file t))
 
-(setopt tab-always-indent 'complete
-        read-buffer-completion-ignore-case t
-        read-file-name-completion-ignore-case t
+;;
+;;; Appearance
 
-        ;; This *may* need to be set to 'always just so that you don't
-        ;; miss other possible good completions that match the input
-        ;; string.
-        completion-auto-help t
-
-        ;; Include more information with completion listings
-        completions-detailed t
-
-        ;; Move focus to the completions window after hitting tab
-        ;; twice.
-        completion-auto-select 'second-tab
-
-        ;; If there are 3 or less completion candidates, don't pop up
-        ;; a window, just cycle through them.
-        completion-cycle-threshold 3
-
-        ;; Cycle through completion options vertically, not
-        ;; horizontally.
-        completions-format 'vertical
-
-        ;; Only show up to 10 lines in the completions window.
-        completions-max-height 10
-
-        ;; Don't show the unneeded help string at the top of the
-        ;; completions buffer.
-        completion-show-help nil
-
-        ;; Add more `completion-styles' to improve candidate selection.
-        completion-styles '(basic partial-completion substring initials))
-
-;;; ----- Appearance -----
-
-;; Set the theme for Emacs.
 (load-theme 'deeper-blue t)
 
 (defun ll/on-after-init ()
   (unless (display-graphic-p (selected-frame))
-    ;; Set the terminal to a transparent version of the background color.
+    ;; Set the terminal to a transparent version of the background color
     (set-face-background 'default "unspecified-bg" (selected-frame))
     (set-face-background 'line-number "unspecified-bg" (selected-frame))))
 
