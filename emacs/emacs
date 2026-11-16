@@ -17,9 +17,6 @@
 ;; Follow symlinks to VC-controlled files without warning
 (setq vc-follow-symlinks t)
 
-;; Reload open files when a git checkout changes them on disk
-(global-auto-revert-mode 1)
-
 ;; Quit Emacs directly even if there are running processes
 (setq confirm-kill-processes nil)
 
@@ -49,6 +46,9 @@
 
 ;; Enable mouse events in terminal Emacs
 (xterm-mouse-mode 1)
+
+;; Reload open files when a git checkout changes them on disk
+(global-auto-revert-mode 1)
 
 ;; Display line numbers
 (dolist (hook '(prog-mode-hook text-mode-hook conf-mode-hook))
@@ -136,11 +136,6 @@
   :bind (("C-c w" . ace-window)
          ([remap other-window] . ace-window)))
 
-;; mistty is a terminal application for Emacs.
-;; Disabled: claude-code-ide does not support it (uses eat instead).
-;; (use-package mistty
-;;   :bind (("C-c v" . mistty)))
-
 ;; eat is a pure Elisp terminal emulator (no native module needed).
 (use-package eat
   :bind (("C-c v" . eat)))
@@ -178,6 +173,16 @@
   :init
   (vertico-mode)
   (setq vertico-count 20))
+
+;; In file prompts: RET enters a directory, DEL deletes a whole path component
+(use-package vertico-directory
+  :ensure nil
+  :after vertico
+  :bind (:map vertico-map
+         ("RET" . vertico-directory-enter)
+         ("DEL" . vertico-directory-delete-char)
+         ("M-DEL" . vertico-directory-delete-word))
+  :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
 
 ;; Emacs minibuffer configurations.
 (use-package emacs
@@ -401,4 +406,3 @@
 
 ;; Clear the background color for transparent terminals.
 (add-hook 'window-setup-hook 'll/on-after-init)
-(fido-vertical-mode 1)
