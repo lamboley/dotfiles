@@ -94,63 +94,43 @@
 ;; Delete the selection with a keypress
 (delete-selection-mode t)
 
-;; Improve scrolling
+;; Improve scrolling for ultra-scroll
 (setq scroll-margin 0
       scroll-conservatively 100000
       scroll-preserve-screen-position 1)
 
-(use-package ultra-scroll
-  :config
-  (ultra-scroll-mode +1))
-
-;; which-key - show available keybindings in a popup
+;; which-key is a minor mode for Emacs that displays the key bindings
+;; following your currently entered incomplete command in a popup.
 (use-package which-key
-  :ensure t
+  :ensure nil
   :config
   (which-key-mode +1))
-
-(use-package paren
-  :config
-  (show-paren-mode +1)
-  (setq show-paren-context-when-offscreen 'overlay))
 
 (use-package calendar
   :defer t
   :config
   (setq calendar-week-start-day 1))
 
-(use-package time
-  :defer t
-  :config
-  (setq world-clock-list
-        '(("America/New_York" "New York")
-          ("Europe/Paris" "Paris"))))
-
-;; Highlight the current line
-(use-package hl-line
-  :config
-  (global-hl-line-mode +1))
-
-(use-package dired
-  :ensure nil
-  :defer t
-  :config
+;(use-package dired
+;  :ensure nil
+;  :defer t
+;  :config
   ;; dired - reuse current buffer by pressing 'a'
-  (put 'dired-find-alternate-file 'disabled nil)
+;  (put 'dired-find-alternate-file 'disabled nil)
 
   ;; always delete and copy recursively
-  (setq dired-recursive-deletes 'always)
-  (setq dired-recursive-copies 'always)
+;  (setq dired-recursive-deletes 'always)
+;  (setq dired-recursive-copies 'always)
 
   ;; if there is a dired buffer displayed in the next window, use its
   ;; current subdir, instead of the current subdir of this dired buffer
-  (setq dired-dwim-target t)
+;  (setq dired-dwim-target t)
 
   ;; Drag files from dired to other apps
-  (setq dired-mouse-drag-files t)
+;  (setq dired-mouse-drag-files t)
 
   ;; Enable some really cool extensions like C-x C-j(dired-jump)
-  (require 'dired-x))
+;  (require 'dired-x))
 
 (use-package magit
   :bind (("C-x g" . magit-status)))
