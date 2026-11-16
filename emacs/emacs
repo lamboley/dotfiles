@@ -106,59 +106,33 @@
   :config
   (which-key-mode +1))
 
-(use-package calendar
-  :defer t
-  :config
-  (setq calendar-week-start-day 1))
-
-;(use-package dired
-;  :ensure nil
-;  :defer t
-;  :config
-  ;; dired - reuse current buffer by pressing 'a'
-;  (put 'dired-find-alternate-file 'disabled nil)
-
-  ;; always delete and copy recursively
-;  (setq dired-recursive-deletes 'always)
-;  (setq dired-recursive-copies 'always)
-
-  ;; if there is a dired buffer displayed in the next window, use its
-  ;; current subdir, instead of the current subdir of this dired buffer
-;  (setq dired-dwim-target t)
-
-  ;; Drag files from dired to other apps
-;  (setq dired-mouse-drag-files t)
-
-  ;; Enable some really cool extensions like C-x C-j(dired-jump)
-;  (require 'dired-x))
-
+;; magit is a complete text-based user interface to Git.
 (use-package magit
   :bind (("C-x g" . magit-status)))
 
-(use-package diminish)
-
-;; rainbow-mode - colorize color strings like #ff0000 and rgb(...)
+;; rainbow-mode colorize color strings like #ff0000.
 (use-package rainbow-mode
-  :hook prog-mode
-  :diminish)
+  :hook prog-mode)
 
-;; hl-todo - highlight TODO, FIXME, etc. in comments
+;; hl-todo highlight TODO, FIXME in comments
 (use-package hl-todo
   :config
-  (setq hl-todo-highlight-punctuation ":")
+  ;; Enable globally, not just in prog-mode.
   (global-hl-todo-mode +1))
 
 ;; diff-hl - highlight uncommitted changes in the fringe
 (use-package diff-hl
   :config
+  ;; Enable globally, not just in prog-mode.
   (global-diff-hl-mode +1)
+  ;; Also show it in dired-mode
   (add-hook 'dired-mode-hook 'diff-hl-dired-mode))
 
-;; ace-window - quickly switch between windows using number labels
+;; ace-window is a Emacs package for selecting a window to switch to.
 (use-package ace-window
-  :bind (("s-w" . ace-window)
-         ([remap other-window] . ace-window)))
+  :bind ([remap other-window] . ace-window))
 
+;; mistty is a terminal application for Emacs.
 (use-package mistty
   :bind (("C-c v" . mistty)))
 
