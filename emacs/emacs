@@ -130,11 +130,28 @@
 
 ;; ace-window is a Emacs package for selecting a window to switch to.
 (use-package ace-window
-  :bind ([remap other-window] . ace-window))
+  :bind (("C-c w" . ace-window)
+         ([remap other-window] . ace-window)))
 
 ;; mistty is a terminal application for Emacs.
-(use-package mistty
-  :bind (("C-c v" . mistty)))
+;; Disabled: claude-code-ide does not support it (uses eat instead).
+;; (use-package mistty
+;;   :bind (("C-c v" . mistty)))
+
+;; eat is a pure Elisp terminal emulator (no native module needed).
+(use-package eat
+  :bind (("C-c v" . eat)))
+
+;; claude-code-ide integrates Claude Code with Emacs (MCP bridge).
+;; Not on MELPA, so install from git (requires Emacs 30+).
+(use-package claude-code-ide
+  :vc (:url "https://github.com/manzaltu/claude-code-ide.el" :rev :newest)
+  :bind ("C-c a" . claude-code-ide-menu)
+  :custom
+  (claude-code-ide-terminal-backend 'eat)
+  :config
+  ;; Expose Emacs tools (xref, diagnostics, tree-sitter...) to Claude.
+  (claude-code-ide-emacs-tools-setup))
 
 ;;
 ;;; Completion
