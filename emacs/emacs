@@ -396,3 +396,4 @@
 
 ;; Clear the background color for transparent terminals.
 (add-hook 'window-setup-hook 'll/on-after-init)
+(fido-vertical-mode 1)
