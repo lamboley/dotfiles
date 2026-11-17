@@ -2,7 +2,7 @@
 ;;
 ;; Copyright (c) 2026 Lucas Lamboley
 ;;
-;; Author: Lucas Lamboley  <lucas.lamboley@outlook.com>
+;; Author: Lucas Lamboley <lucas.lamboley@outlook.com>
 ;; URL:    https://github.com/lamboley/dotfiles
 
 ;;
@@ -282,12 +282,6 @@
   ;; completions bubble up to the top (part of corfu; the history
   ;; persists across sessions automatically via our savehist-mode)
   (corfu-history-mode +1))
-
-;; corfu-terminal emulates the popup with overlays instead.
-(use-package corfu-terminal
-  :unless (display-graphic-p)
-  :config
-  (corfu-terminal-mode +1))
 
 ;; cape provides completion at point extensions which can be used in combination with Corfu.
 (use-package cape
