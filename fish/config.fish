@@ -20,6 +20,12 @@ if status is-interactive
     alias c claude
     alias vim nvim
     alias e 'emacs -nw .'
+    alias gmt 'go mod tidy'
+    alias gmv 'go mod verify'
+    alias gl 'golangci-lint'
+    alias glf 'golangci-lint fmt'
+    alias glr 'golangci-lint run'
+    alias m make
 
     # Agent SSH avec Keychain
     if command -q keychain
