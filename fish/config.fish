@@ -12,7 +12,7 @@ if status is-interactive
 
     alias ll 'ls -l'
     alias lla 'ls -la'
-    alias lt 'ls -lrt'
+    alias llt 'ls -lrt'
     alias mkdir 'mkdir -p'
     alias grep 'grep --color=auto'
     alias sshm 'sshm -c ~/.ssh/config'

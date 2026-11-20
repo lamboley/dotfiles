@@ -4,12 +4,16 @@
 
 ## Contents
 
-- [Installation](#installation)
-- [License](#license)
+- [Dotfiles](#dotfiles)
+  - [Contents](#contents)
+  - [Installation](#installation)
+  - [License](#license)
 
 ## Installation
 
-- `curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh \| bash -`
+```bash
+curl -fsSL https://raw.githubusercontent.com/lamboley/dotfiles/master/install.sh | bash -
+```
 
 ## License
 
