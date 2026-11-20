@@ -2,15 +2,16 @@ fish_add_path -g /usr/local/go/bin $HOME/.local/go/bin $HOME/go/bin $HOME/.local
 
 set -gx COLORTERM truecolor
 
-set -gx EDITOR nvim
-set -gx VISUAL nvim
+set -gx EDITOR emacs
+set -gx VISUAL emacs
 
 if status is-interactive
     set -g fish_greeting ""
 
     stty -ixon
 
-    alias ll 'ls -la'
+    alias ll 'ls -l'
+    alias lla 'ls -la'
     alias lt 'ls -lrt'
     alias mkdir 'mkdir -p'
     alias grep 'grep --color=auto'
