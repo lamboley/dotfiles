@@ -194,6 +194,20 @@ install_node() {
   install_tree "$(fetch "https://nodejs.org/dist/${ver}/node-${ver}-linux-${arch}.tar.xz")" bin lib
 }
 
+# emacs : version 30+ via snap (Ubuntu 24.04+ ne supporte pas le PPA kelleyk).
+install_emacs() {
+  if check_cmd snap; then
+    [[ -n "$SUDO" || "$(id -u)" -eq 0 ]] || { error "emacs : sudo requis pour snap"; return 1; }
+    $SUDO apt-get remove -y --purge emacs emacs-gtk emacs-common emacs-bin-common emacs-el 2>/dev/null || true
+    $SUDO snap install emacs --classic
+  elif [[ "$PKG" == "apt-get" ]]; then
+    quiet $SUDO apt-get install -y emacs
+  else
+    error "emacs : snap ou apt requis"
+    return 1
+  fi
+}
+
 # alacritty : pas de binaire standalone officiel -> PPA apt (Debian/Ubuntu).
 install_alacritty() {
   [[ "$PKG" == "apt-get" ]] || { error "alacritty : PPA apt requis"; return 1; }
@@ -250,9 +264,9 @@ deploy_alacritty() {
 
 deploy_emacs() {
   backup_if_real "$HOME/.emacs"
-  backup_if_real "$HOME/.emacs.custom.el"
+  mkdir -p "$HOME/.emacs.d"
   ln -sf "$DOTFILES/emacs/emacs" "$HOME/.emacs"
-  ln -sf "$DOTFILES/emacs/custom.el" "$HOME/.emacs.custom.el"
+  ln -sf "$DOTFILES/emacs/custom.el" "$HOME/.emacs.d/.emacs.custom.el"
 }
 
 # Amorce curl quand l'hôte n'a que wget : fisher n'a pas de repli.

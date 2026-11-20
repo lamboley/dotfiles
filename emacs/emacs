@@ -2,7 +2,7 @@
 ;;
 ;; Copyright (c) 2026 Lucas Lamboley
 ;;
-;; Author: Lucas Lamboley  <lucas.lamboley@outlook.com>
+;; Author: Lucas Lamboley <lucas.lamboley@outlook.com>
 ;; URL:    https://github.com/lamboley/dotfiles
 
 ;;
@@ -46,6 +46,9 @@
 
 ;; Enable mouse events in terminal Emacs
 (xterm-mouse-mode 1)
+
+;; Reload open files when a git checkout changes them on disk
+(global-auto-revert-mode 1)
 
 ;; Display line numbers
 (dolist (hook '(prog-mode-hook text-mode-hook conf-mode-hook))
@@ -133,11 +136,6 @@
   :bind (("C-c w" . ace-window)
          ([remap other-window] . ace-window)))
 
-;; mistty is a terminal application for Emacs.
-;; Disabled: claude-code-ide does not support it (uses eat instead).
-;; (use-package mistty
-;;   :bind (("C-c v" . mistty)))
-
 ;; eat is a pure Elisp terminal emulator (no native module needed).
 (use-package eat
   :bind (("C-c v" . eat)))
@@ -175,6 +173,16 @@
   :init
   (vertico-mode)
   (setq vertico-count 20))
+
+;; In file prompts: RET enters a directory, DEL deletes a whole path component
+(use-package vertico-directory
+  :ensure nil
+  :after vertico
+  :bind (:map vertico-map
+         ("RET" . vertico-directory-enter)
+         ("DEL" . vertico-directory-delete-char)
+         ("M-DEL" . vertico-directory-delete-word))
+  :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
 
 ;; Emacs minibuffer configurations.
 (use-package emacs
@@ -248,6 +256,8 @@
   :custom
   (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
   (corfu-auto t)                 ;; Enable auto completion
+  ;; Vertico already lists the candidates in the minibuffer, a Corfu popup on top duplicates them
+  (global-corfu-minibuffer (lambda () (not (bound-and-true-p vertico--input))))
   ;; (corfu-separator ?\s)          ;; Orderless field separator
   ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
   ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
@@ -272,12 +282,6 @@
   ;; completions bubble up to the top (part of corfu; the history
   ;; persists across sessions automatically via our savehist-mode)
   (corfu-history-mode +1))
-
-;; corfu-terminal emulates the popup with overlays instead.
-(use-package corfu-terminal
-  :unless (display-graphic-p)
-  :config
-  (corfu-terminal-mode +1))
 
 ;; cape provides completion at point extensions which can be used in combination with Corfu.
 (use-package cape
@@ -396,4 +400,3 @@
 
 ;; Clear the background color for transparent terminals.
 (add-hook 'window-setup-hook 'll/on-after-init)
-(fido-vertical-mode 1)
