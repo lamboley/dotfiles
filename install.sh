@@ -36,7 +36,7 @@ REPO="https://github.com/lamboley/dotfiles.git"
 DOTFILES="$HOME/.dotfiles"
 
 # Outils gérés, dans l'ordre d'installation (go avant sshm, compilé avec sur Termux).
-ALL_TOOLS="fish curl zoxide keychain go node nvim zellij sshm lazygit yazi mpv fd terraform aws alacritty emacs"
+ALL_TOOLS="fish curl zoxide keychain go node nvim zellij sshm lazygit yazi fd terraform aws alacritty emacs"
 
 IS_TERMUX=0
 ARCH=""          # uname -m brut : x86_64 / aarch64
