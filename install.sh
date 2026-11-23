@@ -222,13 +222,16 @@ install_alacritty() {
 # configs du dépôt (symlinks) — deploy_<outil> est appelé après l'install
 
 deploy_fish() {
-  mkdir -p "$HOME/.config/fish/functions"
+  mkdir -p "$HOME/.config/fish/functions" "$HOME/.config/fish/completions"
   backup_if_real "$HOME/.config/fish/config.fish"
   ln -sf "$DOTFILES/fish/config.fish" "$HOME/.config/fish/config.fish"
   ln -sf "$DOTFILES/fish/fish_plugins" "$HOME/.config/fish/fish_plugins"
   local f
   for f in "$DOTFILES"/fish/functions/*.fish; do
     [[ -e "$f" ]] && ln -sf "$f" "$HOME/.config/fish/functions/$(basename "$f")"
+  done
+  for f in "$DOTFILES"/fish/completions/*.fish; do
+    [[ -e "$f" ]] && ln -sf "$f" "$HOME/.config/fish/completions/$(basename "$f")"
   done
   ensure_curl   # fisher exige curl, sans repli wget
   install_fisher
