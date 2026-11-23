@@ -36,7 +36,7 @@ REPO="https://github.com/lamboley/dotfiles.git"
 DOTFILES="$HOME/.dotfiles"
 
 # Outils gérés, dans l'ordre d'installation (go avant sshm, compilé avec sur Termux).
-ALL_TOOLS="fish curl zoxide keychain go node nvim zellij sshm lazygit yazi mpv fd alacritty emacs"
+ALL_TOOLS="fish curl zoxide keychain go node nvim zellij sshm lazygit yazi mpv fd terraform aws alacritty emacs"
 
 IS_TERMUX=0
 ARCH=""          # uname -m brut : x86_64 / aarch64
@@ -194,6 +194,24 @@ install_node() {
   install_tree "$(fetch "https://nodejs.org/dist/${ver}/node-${ver}-linux-${arch}.tar.xz")" bin lib
 }
 
+# terraform : binaire unique dans un zip HashiCorp ; dernière version via l'API checkpoint.
+install_terraform() {
+  local ver
+  ver="$(dl_stdout 'https://checkpoint-api.hashicorp.com/v1/check/terraform' 2>/dev/null \
+    | grep -oE '"current_version": *"[0-9]+\.[0-9]+\.[0-9]+"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+  [[ -n "$ver" ]] || { error "terraform : version introuvable"; return 1; }
+  install_bins "$(fetch "https://releases.hashicorp.com/terraform/${ver}/terraform_${ver}_linux_${ARCH_GO}.zip")" terraform
+}
+
+# aws cli v2 : installeur officiel, relocalisé en user-local (~/.local/aws-cli,
+# lien dans ~/.local/bin). Relancer l'installeur met à jour l'existant.
+install_aws() {
+  local dir; dir="$(mktemp -d)"; TMP_FILES+=("$dir")
+  unpack "$(fetch "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}.zip")" "$dir" || return 1
+  chmod -R u+x "$dir/aws"  # python3 -m zipfile perd les bits exécutables
+  "$dir/aws/install" --update -i "$HOME/.local/aws-cli" -b "$HOME/.local/bin"
+}
+
 # emacs : version 30+ via snap (Ubuntu 24.04+ ne supporte pas le PPA kelleyk).
 install_emacs() {
   if check_cmd snap; then
@@ -344,7 +362,7 @@ set_default_shell() {
 # absents, "-") sont listés ici.
 termux_cmd() {
   case "$1" in
-    keychain|alacritty) echo "-" ;;
+    keychain|alacritty|aws) echo "-" ;;
     go)   echo "pkg install -y golang" ;;
     node) echo "pkg install -y nodejs" ;;
     nvim) echo "pkg install -y neovim" ;;
