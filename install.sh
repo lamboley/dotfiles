@@ -259,6 +259,10 @@ deploy_fish() {
   for f in "$DOTFILES"/fish/completions/*.fish; do
     [[ -e "$f" ]] && ln -sf "$f" "$HOME/.config/fish/completions/$(basename "$f")"
   done
+  mkdir -p "$HOME/.config/fish/conf.d"
+  for f in "$DOTFILES"/fish/conf.d/*.fish; do
+    [[ -e "$f" ]] && ln -sf "$f" "$HOME/.config/fish/conf.d/$(basename "$f")"
+  done
   ensure_curl   # fisher exige curl, sans repli wget
   install_fisher
 }
