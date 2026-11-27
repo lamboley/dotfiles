@@ -19,6 +19,7 @@ if status is-interactive
     alias g git
     alias lg lazygit
     alias c claude
+    alias d docker
     alias vim nvim
     alias e 'emacs -nw .'
     alias gmt 'go mod tidy'
