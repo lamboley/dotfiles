@@ -13,6 +13,18 @@ return {
 			"vimdoc",
 			"vim",
 			"regex",
+			"go",
+			"gomod",
+			"gosum",
+			"vue",
+			"yaml",
+			"terraform",
+			"hcl",
+			"javascript",
+			"typescript",
+			"tsx",
+			"html",
+			"css",
 		})
 
 		vim.api.nvim_create_autocmd("FileType", {

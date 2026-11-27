@@ -24,6 +24,12 @@ return {
 				"tailwindcss",
 				"markdownlint-cli2",
 				"golangci-lint",
+				"gopls",
+				"vtsls",
+				"vue_ls",
+				"yamlls",
+				"terraformls",
+				"html",
 			},
 		})
 
@@ -113,6 +119,16 @@ return {
 				vim.keymap.set("n", "K", vim.lsp.buf.hover, vim.tbl_extend("force", opts, { desc = "Hover docs" }))
 			end,
 		})
-		vim.lsp.enable({ "lua_ls", "bashls", "tailwindcss" })
+		vim.lsp.enable({
+			"lua_ls",
+			"bashls",
+			"tailwindcss",
+			"gopls",
+			"vtsls",
+			"vue_ls",
+			"yamlls",
+			"terraformls",
+			"html",
+		})
 	end,
 }
