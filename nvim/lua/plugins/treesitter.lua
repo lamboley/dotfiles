@@ -2,6 +2,7 @@ return {
 
 	plugin = {
 		src = "https://github.com/nvim-treesitter/nvim-treesitter",
+		version = "main",
 	},
 
 	config = function()

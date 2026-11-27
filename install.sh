@@ -36,7 +36,7 @@ REPO="https://github.com/lamboley/dotfiles.git"
 DOTFILES="$HOME/.dotfiles"
 
 # Outils gérés, dans l'ordre d'installation (go avant sshm, compilé avec sur Termux).
-ALL_TOOLS="fish curl zoxide keychain go node nvim zellij sshm lazygit yazi fd terraform aws alacritty emacs"
+ALL_TOOLS="fish curl zoxide keychain go node tree-sitter nvim zellij sshm lazygit yazi fd terraform aws alacritty emacs"
 
 IS_TERMUX=0
 ARCH=""          # uname -m brut : x86_64 / aarch64
@@ -152,6 +152,14 @@ install_lazygit() { install_bins "$(gh_asset jesseduffield/lazygit 'lazygit_@VER
 install_fd()      { install_bins "$(gh_asset sharkdp/fd 'fd-@TAG@-@ARCH@-unknown-linux-musl.tar.gz')" fd; }
 install_yazi()    { install_bins "$(gh_asset sxyazi/yazi 'yazi-@ARCH@-unknown-linux-musl.zip')" yazi ya; }
 install_nvim()    { install_tree "$(gh_asset neovim/neovim 'nvim-linux-@ARM64@.tar.gz')" bin lib share; }
+
+# CLI tree-sitter (compile les parsers de nvim-treesitter, branche main).
+# Assets nommés x64 / arm64.
+install_tree-sitter() {
+  local arch=x64
+  [[ "$ARCH_GO" == "arm64" ]] && arch=arm64
+  install_bins "$(gh_asset tree-sitter/tree-sitter "tree-sitter-cli-linux-${arch}.zip")" tree-sitter
+}
 
 # Pas de binaire Linux officiel chez curl : stunnel/static-curl est le build de
 # référence (musl). Sert de repli quand l'hôte n'a que wget.

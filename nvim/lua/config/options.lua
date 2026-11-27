@@ -11,7 +11,7 @@ vim.g.snacks_animate = true
 vim.g.deprecation_warnings = false
 
 local opt = vim.opt
-opt.autoread = true -- Reload files changed outside nvim (checktime below triggers it)
+opt.autoread = true -- Reload files changed outside nvim
 opt.autowrite = true -- Enable auto write
 opt.completeopt = "menu,menuone,noselect" -- Control appearance of completion menu
 opt.confirm = true -- Confirm to save changes before exiting modified buffer
@@ -22,6 +22,7 @@ opt.laststatus = 3 -- global statusline
 opt.list = true -- Show some invisible characters
 opt.mouse = "a" -- Enable mouse mode
 opt.number = true -- Print line number
+opt.relativenumber = true -- Relative line numbers (current line stays absolute)
 opt.shiftround = true -- Round indent
 opt.shiftwidth = 4 -- Size of an indent
 opt.showmode = false -- Dont show mode since we have a statusline
