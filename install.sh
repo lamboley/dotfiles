@@ -444,6 +444,17 @@ install_system_extras() {
   return 0
 }
 
+# WSL uniquement : wslview (paquet wslu) ouvre les liens dans le navigateur
+# Windows. Paquet apt, donc sauté sans apt ou sans sudo.
+install_wslu() {
+  [[ -n "${WSL_DISTRO_NAME:-}" ]] || return 0
+  check_cmd wslview && return 0
+  [[ "$PKG" == "apt-get" && ( -n "$SUDO" || "$(id -u)" -eq 0 ) ]] || return 0
+  info "wslu (WSL) via $PKG"   # sudo : stdout masqué, prompt gardé
+  $SUDO "$PKG" install -y wslu >/dev/null || warn "wslu : échec"
+  return 0
+}
+
 install_dotfiles() {
   local t
   if [[ "$IS_TERMUX" -eq 1 ]]; then
@@ -454,6 +465,7 @@ install_dotfiles() {
   else
     mkdir -p "$HOME/.local/bin"
     install_system_extras
+    install_wslu
   fi
 
   for t in $ALL_TOOLS; do

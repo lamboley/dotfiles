@@ -2,6 +2,11 @@ fish_add_path -g /usr/local/go/bin $HOME/.local/go/bin $HOME/go/bin $HOME/.local
 
 set -gx COLORTERM truecolor
 
+# WSL : ouvre les liens dans le navigateur Windows (paquet wslu)
+if command -q wslview
+    set -gx BROWSER wslview
+end
+
 set -gx EDITOR emacs
 set -gx VISUAL emacs
 
