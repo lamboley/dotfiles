@@ -36,7 +36,7 @@ REPO="https://github.com/lamboley/dotfiles.git"
 DOTFILES="$HOME/.dotfiles"
 
 # Outils gérés, dans l'ordre d'installation (go avant sshm, compilé avec sur Termux).
-ALL_TOOLS="fish curl zoxide keychain go node tree-sitter nvim zellij sshm lazygit yazi fd terraform aws alacritty emacs"
+ALL_TOOLS="fish curl zoxide keychain go node tree-sitter nvim zellij sshm lazygit yazi fd terraform aws uv alacritty emacs"
 
 IS_TERMUX=0
 ARCH=""          # uname -m brut : x86_64 / aarch64
@@ -150,6 +150,7 @@ install_zoxide()  { install_bins "$(gh_asset ajeetdsouza/zoxide 'zoxide-@VER@-@A
 install_sshm()    { install_bins "$(gh_asset Gu1llaum-3/sshm 'sshm_Linux_@ARM64@.tar.gz')" sshm; }
 install_lazygit() { install_bins "$(gh_asset jesseduffield/lazygit 'lazygit_@VER@_linux_@ARM64@.tar.gz')" lazygit; }
 install_fd()      { install_bins "$(gh_asset sharkdp/fd 'fd-@TAG@-@ARCH@-unknown-linux-musl.tar.gz')" fd; }
+install_uv()      { install_bins "$(gh_asset astral-sh/uv 'uv-@ARCH@-unknown-linux-musl.tar.gz')" uv uvx; }
 install_yazi()    { install_bins "$(gh_asset sxyazi/yazi 'yazi-@ARCH@-unknown-linux-musl.zip')" yazi ya; }
 install_nvim()    { install_tree "$(gh_asset neovim/neovim 'nvim-linux-@ARM64@.tar.gz')" bin lib share; }
 
